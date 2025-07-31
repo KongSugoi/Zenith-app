@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <!-- ✅ CSP cho phép fonts và ảnh avatar từ Dicebear -->
+    <meta http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' https://api.dicebear.com data:;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval';
+        connect-src 'self' ws://localhost:* http://localhost:*;
+      ">
+
+
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="description" content="Ứng dụng sức khỏe dành cho người cao tuổi" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- ✅ Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Health App" />
+
+    <title>Health App - Ứng dụng Sức khỏe</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

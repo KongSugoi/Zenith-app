@@ -138,7 +138,11 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
           setIsListening(false)
           const text = latestFinalTranscript.trim()
           if (text) {
+            // Tự gửi tin nhắn khi nhận diện xong
             handleSendMessage(text)
+
+            // Phải xác nhận trước khi gửi
+            // setInputText(text)
           }
           latestFinalTranscript = ''
           setFinalTranscript('')
@@ -244,7 +248,11 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     setMessages(prev => [...prev, AIMessage])
     onUpdateLastMessage(AIResponse)
   }
-
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }, [messages])
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -275,7 +283,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
       <Card>
         <CardContent className="p-4">
           {/* Chat Messages */}
-          <ScrollArea ref={scrollAreaRef} className="h-96 mb-4 border rounded-lg p-4">
+          <div ref={scrollAreaRef} className="h-96 mb-4 border rounded-lg p-4 space-y-4 overflow-y-auto">
             <div className="space-y-4">
               {messages.map((message) => (
                 <div
@@ -292,12 +300,12 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
 
                   <div className={`max-w-xs lg:max-w-md ${message.type === 'user' ? 'order-first' : ''}`}>
                     <div
-                      className={`rounded-lg px-4 py-2 ${
-                        message.type === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
-                      }`}
-                    >
+                        className={`rounded-lg px-4 py-2 ${
+                          message.type === 'user'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
                       <p className="text-sm">{message.content}</p>
                       {message.type === 'ai' && (
                         <Button
@@ -329,7 +337,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Voice Listening Status */}
           {isListening && (

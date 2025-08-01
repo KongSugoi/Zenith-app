@@ -26,7 +26,14 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
-    cors: true
+    cors: true,
+    proxy: {
+      '/chat': {
+        target: 'http://18.215.161.7:6000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/chat/, '/chat')
+      }
+    }
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')

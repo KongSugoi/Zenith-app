@@ -12,7 +12,12 @@ interface User {
 }
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  // const [user, setUser] = useState<User | null>(null);
+
+  const [user, setUser] = useState<User>({
+    name: 'Người dùng demo',
+    email: 'demo@example.com'
+  });
 
   const handleLogin = (email: string, password: string) => {
     // Mock authentication - in real app, this would call an API

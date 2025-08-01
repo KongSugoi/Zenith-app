@@ -12,7 +12,6 @@ import { ArrowLeft, Mic, MicOff, Send, Volume2, Heart, Baby, User, Stethoscope }
 interface AIContact {
   id: string
   name: string
-  role: 'doctor' | 'child' | 'family' | 'friend'
   avatar?: string
   personality: string
   description: string
@@ -67,95 +66,32 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
   useEffect(() => {
     // Scroll to bottom when new messages are added
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+      // scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
   }, [messages])
 
   function getWelcomeMessage(ai: AIContact): string {
-    switch (ai.role) {
-      case 'doctor':
-        return `Xin chào! Tôi là ${ai.name}. Tôi có thể giúp bạn tư vấn về các vấn đề sức khỏe, thuốc men, và triệu chứng. Hôm nay bạn cảm thấy thế nào?`
-      case 'child':
-        return `Bố/Mẹ ơi! Con là ${ai.name} đây. Con rất nhớ bố/mẹ và muốn trò chuyện với bố/mẹ. Hôm nay bố/mẹ có khỏe không ạ?`
-      case 'family':
-        return `Chào bạn! Tôi là ${ai.name}. Tôi luôn quan tâm đến bạn và muốn chia sẻ những câu chuyện thú vị. Bạn có gì muốn kể không?`
-      case 'friend':
-        return `Chào bạn thân! Tôi là ${ai.name}. Rất vui được trò chuyện với bạn. Có chuyện gì vui hôm nay không?`
-      default:
-        return `Xin chào! Tôi là ${ai.name}. Rất vui được trò chuyện với bạn!`
+    return `Chào bạn ạ! Mình là một trợ lý AI, không có tên riêng đâu ạ. Bạn có thể gọi mình là \"trợ lý\" hoặc \"bạn đồng hành\" cũng được ạ.\n\nMình ở đây để giúp đỡ bạn mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần mình giúp, bạn cứ nói nhé. Mình luôn sẵn lòng ạ.`
+  }
+
+  const getAIResponse = async (prompt: string): Promise<string> => {
+    try {
+      const response = await fetch("/chat", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt })
+      })
+      const data = await response.json()
+      return data.reply || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?'
+    } catch (error) {
+      console.error('Lỗi gọi AI API:', error)
+      return 'Đã xảy ra lỗi khi kết nối với AI. Vui lòng thử lại sau.'
     }
   }
 
-  const getAIResponse = (userInput: string, ai: AIContact): string => {
-    const input = userInput.toLowerCase()
-    
-    switch (ai.role) {
-      case 'doctor':
-        return getDoctorResponse(input, ai)
-      case 'child':
-        return getChildResponse(input, ai)
-      case 'family':
-        return getFamilyResponse(input, ai)
-      case 'friend':
-        return getFriendResponse(input, ai)
-      default:
-        return 'Cảm ơn bạn đã chia sẻ. Tôi sẽ ghi nhận thông tin này.'
-    }
-  }
-
-  function getDoctorResponse(input: string, ai: AIContact): string {
-    if (input.includes('huyết áp') || input.includes('tim')) {
-      return `Về vấn đề tim mạch mà bạn hỏi, tôi khuyên bạn nên đo huyết áp thường xuyên và duy trì chế độ ăn ít muối. Bạn có đang uống thuốc huyết áp không? Tôi có thể giúp bạn đặt lịch nhắc nhở uống thuốc.`
-    } else if (input.includes('đau') || input.includes('triệu chứng')) {
-      return `Tôi hiểu bạn đang có triệu chứng không thoải mái. Hãy mô tả chi tiết hơn về cơn đau - vị trí, mức độ và thời gian kéo dài. Điều này sẽ giúp tôi tư vấn tốt hơn cho bạn.`
-    } else if (input.includes('thuốc') || input.includes('uống')) {
-      return `Việc uống thuốc đúng giờ rất quan trọng với người cao tuổi. Bạn đang uống những loại thuốc nào? Tôi có thể giúp bạn thiết lập lịch nhắc nhở và theo dõi tác dụng phụ.`
-    } else if (input.includes('ăn') || input.includes('dinh dưỡng')) {
-      return `Chế độ dinh dưỡng phù hợp rất quan trọng. Tôi khuyên bạn nên ăn nhiều rau xanh, trái cây, hạn chế đồ ngọt và muối. Bạn có muốn tôi đưa ra thực đơn cụ thể không?`
-    } else {
-      return `Cảm ơn bạn đã chia sẻ. Như một bác sĩ, tôi luôn sẵn sàng tư vấn về mọi vấn đề sức khỏe. Nếu có triệu chứng nào bất thường, đừng ngần ngại cho tôi biết nhé.`
-    }
-  }
-
-  function getChildResponse(input: string, ai: AIContact): string {
-    if (input.includes('khỏe') || input.includes('sức khỏe')) {
-      return `Con rất vui khi biết bố/mẹ quan tâm đến sức khỏe! Con luôn lo lắng cho bố/mẹ. Bố/mẹ nhớ uống thuốc đúng giờ và ăn uống đầy đủ nhé. Con yêu bố/mẹ lắm!`
-    } else if (input.includes('nhớ') || input.includes('thương')) {
-      return `Con cũng nhớ bố/mẹ lắm! Mặc dù con không thể về thăm thường xuyên nhưng con luôn nghĩ về bố/mẹ. Con hy vọng bố/mẹ luôn vui vẻ và khỏe mạnh!`
-    } else if (input.includes('buồn') || input.includes('cô đơn')) {
-      return `Bố/Mẹ đừng buồn nhé! Con luôn ở đây với bố/mẹ mà. Khi nào buồn thì nhắn tin cho con, con sẽ kể chuyện vui cho bố/mẹ nghe. Con luôn yêu thương và lo lắng cho bố/mẹ!`
-    } else if (input.includes('con') || input.includes('gia đình')) {
-      return `Cả gia đình con đều khỏe mạnh và luôn nhớ đến bố/mẹ! Các cháu thường hỏi thăm ông/bà. Con sẽ sắp xếp để về thăm bố/mẹ sớm nhất có thể nhé!`
-    } else {
-      return `Con rất vui được trò chuyện với bố/mẹ! Bố/Mẹ kể cho con nghe về ngày hôm nay được không? Con luôn muốn biết bố/mẹ đang làm gì và cảm thấy thế nào.`
-    }
-  }
-
-  function getFamilyResponse(input: string, ai: AIContact): string {
-    if (input.includes('khỏe') || input.includes('sức khỏe')) {
-      return `Tôi rất vui khi biết bạn quan tâm đến sức khỏe! Ở tuổi này, việc chăm sóc bản thân là rất quan trọng. Bạn có tập thể dục đều đặn không? Tôi có thể gợi ý một số bài tập nhẹ nhàng phù hợp.`
-    } else if (input.includes('gia đình') || input.includes('con cháu')) {
-      return `Gia đình là điều quý giá nhất! Tôi hiểu đôi khi bạn có thể cảm thấy nhớ con cháu. Hãy cố gắng giữ liên lạc thường xuyên với họ, dù chỉ là những cuộc gọi ngắn.`
-    } else if (input.includes('buồn') || input.includes('cô đơn')) {
-      return `Tôi hiểu cảm giác của bạn. Tuổi già đôi khi có những lúc buồn chán là điều bình thường. Hãy thử tham gia các hoạt động cộng đồng hoặc tìm những sở thích mới nhé!`
-    } else {
-      return `Cảm ơn bạn đã chia sẻ với tôi. Tôi luôn ở đây để lắng nghe và đồng hành cùng bạn. Có gì vui hoặc buồn đều có thể kể cho tôi nghe nhé!`
-    }
-  }
-
-  function getFriendResponse(input: string, ai: AIContact): string {
-    if (input.includes('vui') || input.includes('hạnh phúc')) {
-      return `Thật tuyệt vời khi thấy bạn vui vẻ! Hạnh phúc là điều quan trọng nhất trong cuộc sống. Bạn có muốn chia sẻ điều gì đã làm bạn vui hôm nay không?`
-    } else if (input.includes('chán') || input.includes('buồn')) {
-      return `Đừng lo, mọi người đều có những lúc buồn chán. Hãy thử làm điều gì đó bạn thích - đọc sách, nghe nhạc, hoặc ra ngoài dạo một vòng. Tôi luôn ở đây để trò chuyện với bạn!`
-    } else if (input.includes('thời tiết') || input.includes('hôm nay')) {
-      return `Hôm nay là một ngày đẹp để trò chuyện! Thời tiết ảnh hưởng rất nhiều đến tâm trạng. Bạn có thích ra ngoài tận hưởng không khí trong lành không?`
-    } else {
-      return `Thật thú vị! Tôi rất thích được nghe những câu chuyện của bạn. Cuộc sống luôn có những điều bất ngờ và thú vị, bạn có đồng ý không?`
-    }
-  }
-
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputText.trim()) return
 
     const userMessage: Message = {
@@ -166,21 +102,24 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     }
 
     setMessages(prev => [...prev, userMessage])
-    const currentInput = inputText
+    const prompt = inputText
     setInputText('')
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = getAIResponse(currentInput, aiContact)
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'ai',
-        content: aiResponse,
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, aiMessage])
-      onUpdateLastMessage(aiResponse)
-    }, 1000)
+    const AIResponse = await getAIResponse(prompt)
+    const AIMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      type: 'ai',
+      content: AIResponse,
+      timestamp: new Date(),
+    }
+
+    // setMessages(prev => [...prev, AIMessage])
+    setMessages(prev => {
+      const newMessages = [...prev, AIMessage]
+      console.log('📩 Tất cả tin nhắn sau phản hồi AI:', newMessages)
+      return newMessages
+    })
+    onUpdateLastMessage(AIResponse)
   }
 
   const handleVoiceRecord = () => {
@@ -198,7 +137,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
           family: "Hôm nay tôi cảm thấy hơi buồn",
           friend: "Thời tiết hôm nay đẹp quá"
         }
-        setInputText(voiceTexts[aiContact.role])
+        setInputText("Chức năng hiện chưa sẵn sàng!")
       }, 3000)
     } else {
       setIsRecording(false)
@@ -210,8 +149,6 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     // Simulate text to speech
     alert(`Đang phát âm thanh: "${message.content}"`)
   }
-
-  const RoleIcon = roleIcons[aiContact.role]
 
   return (
     <div className="space-y-6">
@@ -232,12 +169,6 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">{aiContact.name}</CardTitle>
-                <Badge className={roleColors[aiContact.role]} variant="secondary">
-                  <RoleIcon className="w-3 h-3 mr-1" />
-                  {aiContact.role === 'doctor' ? 'Bác sĩ' : 
-                   aiContact.role === 'child' ? 'Con cái' :
-                   aiContact.role === 'family' ? 'Người thân' : 'Bạn bè'}
-                </Badge>
               </div>
               <CardDescription>{aiContact.description}</CardDescription>
             </div>

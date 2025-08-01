@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Avatar, AvatarFallback } from './ui/avatar'
-import { Badge } from './ui/badge'
+import { Textarea } from './ui/textarea'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
 import { ArrowLeft, Mic, MicOff, Send, Volume2, Heart, Baby, User, Stethoscope } from 'lucide-react'
@@ -45,42 +45,171 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     }
   ])
   const [inputText, setInputText] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [microphonePermission, setMicrophonePermission] = useState<'granted' | 'denied' | 'pending'>('pending')
+  const [speechError, setSpeechError] = useState<string | null>(null)
+  const [interimTranscript, setInterimTranscript] = useState('')
+  const [finalTranscript, setFinalTranscript] = useState('')
+  
+  const recognitionRef = useRef<any>(null)
+  const speechSynthesisRef = useRef<SpeechSynthesis | null>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  const roleIcons = {
-    doctor: Stethoscope,
-    child: Baby,
-    family: Heart,
-    friend: User
-  }
-
-  const roleColors = {
-    doctor: 'bg-red-100 text-red-800',
-    child: 'bg-pink-100 text-pink-800',
-    family: 'bg-blue-100 text-blue-800',
-    friend: 'bg-green-100 text-green-800'
-  }
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      speechSynthesisRef.current = window.speechSynthesis
+    }
+  }, [])
 
   useEffect(() => {
-    // Scroll to bottom when new messages are added
-    if (scrollAreaRef.current) {
-      // scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
     }
   }, [messages])
 
+  useEffect(() => {
+    let latestFinalTranscript = ''
+
+    const initializeSpeechRecognition = async () => {
+      try {
+        if (typeof window === 'undefined' || !('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+          setSpeechError('Trình duyệt không hỗ trợ nhận diện giọng nói')
+          return
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach(track => track.stop())
+          setMicrophonePermission('granted')
+          setSpeechError(null)
+        } catch {
+          setMicrophonePermission('denied')
+          setSpeechError('Không có quyền truy cập microphone. Vui lòng cấp quyền trong cài đặt trình duyệt.')
+          return
+        }
+
+        const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
+        recognitionRef.current = new SpeechRecognition()
+        recognitionRef.current.continuous = true
+        recognitionRef.current.interimResults = true
+        recognitionRef.current.lang = 'vi-VN'
+
+        recognitionRef.current.onresult = (event: any) => {
+          let interim = ''
+          let final = ''
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              final += transcript
+            } else {
+              interim += transcript
+            }
+          }
+          latestFinalTranscript += final
+          setInterimTranscript(interim)
+          setFinalTranscript(latestFinalTranscript)
+        }
+
+        recognitionRef.current.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error)
+          setIsListening(false)
+          switch (event.error) {
+            case 'not-allowed':
+              setSpeechError('Không có quyền truy cập microphone. Vui lòng cấp quyền và thử lại.')
+              setMicrophonePermission('denied')
+              break
+            case 'no-speech':
+              setSpeechError('Không phát hiện giọng nói. Vui lòng thử lại.')
+              break
+            case 'audio-capture':
+              setSpeechError('Không thể truy cập microphone. Kiểm tra kết nối microphone.')
+              break
+            case 'network':
+              setSpeechError('Lỗi mạng. Kiểm tra kết nối internet.')
+              break
+            default:
+              setSpeechError('Lỗi nhận diện giọng nói. Vui lòng thử lại.')
+          }
+        }
+
+        recognitionRef.current.onend = () => {
+          setIsListening(false)
+          const text = latestFinalTranscript.trim()
+          if (text) {
+            handleSendMessage(text)
+          }
+          latestFinalTranscript = ''
+          setFinalTranscript('')
+          setInterimTranscript('')
+        }
+
+      } catch (error) {
+        console.error('Error initializing speech recognition:', error)
+        setSpeechError('Không thể khởi tạo nhận diện giọng nói')
+      }
+    }
+
+    initializeSpeechRecognition()
+
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.stop()
+    }
+  }, [])
+
   function getWelcomeMessage(ai: AIContact): string {
-    return `Chào bạn ạ! Mình là một trợ lý AI, không có tên riêng đâu ạ. Bạn có thể gọi mình là \"trợ lý\" hoặc \"bạn đồng hành\" cũng được ạ.\n\nMình ở đây để giúp đỡ bạn mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần mình giúp, bạn cứ nói nhé. Mình luôn sẵn lòng ạ.`
+    return `Chào bạn ạ! Mình là một trợ lý AI, không có tên riêng đâu ạ. Bạn có thể gọi mình là "trợ lý" hoặc "bạn đồng hành" cũng được ạ.\n\nMình ở đây để giúp đỡ bạn mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần mình giúp, bạn cứ nói nhé. Mình luôn sẵn lòng ạ.`
+  }
+
+  const startListening = () => {
+    if (microphonePermission === 'denied') {
+      setSpeechError('Vui lòng cấp quyền microphone trong cài đặt trình duyệt và tải lại trang')
+      return
+    }
+
+    if (recognitionRef.current && !isListening) {
+      try {
+        setIsListening(true)
+        setSpeechError(null)
+        setFinalTranscript('')
+        setInterimTranscript('')
+        recognitionRef.current.start()
+      } catch (error) {
+        console.error('Error starting speech recognition:', error)
+        setIsListening(false)
+        setSpeechError('Không thể bắt đầu nhận diện giọng nói')
+      }
+    }
+  }
+
+  const stopListening = () => {
+    if (recognitionRef.current && isListening) {
+      recognitionRef.current.stop()
+      setIsListening(false)
+    }
+  }
+
+  const speakText = (text: string) => {
+    if (speechSynthesisRef.current && text) {
+      speechSynthesisRef.current.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'vi-VN'
+      utterance.rate = 0.9
+      utterance.pitch = 1
+      utterance.volume = 0.8
+      utterance.onstart = () => setIsSpeaking(true)
+      utterance.onend = () => setIsSpeaking(false)
+      utterance.onerror = () => setIsSpeaking(false)
+      speechSynthesisRef.current.speak(utterance)
+    }
   }
 
   const getAIResponse = async (prompt: string): Promise<string> => {
     try {
       const response = await fetch("/chat", {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       })
       const data = await response.json()
@@ -91,21 +220,20 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     }
   }
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim()) return
-
+  const handleSendMessage = async (messageContent?: string) => {
+    const content = messageContent || inputText.trim()
+    if (!content) return
     const userMessage: Message = {
       id: Date.now().toString(),
       type: 'user',
-      content: inputText,
+      content,
       timestamp: new Date(),
     }
 
     setMessages(prev => [...prev, userMessage])
-    const prompt = inputText
     setInputText('')
 
-    const AIResponse = await getAIResponse(prompt)
+    const AIResponse = await getAIResponse(content)
     const AIMessage: Message = {
       id: (Date.now() + 1).toString(),
       type: 'ai',
@@ -113,41 +241,8 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
       timestamp: new Date(),
     }
 
-    // setMessages(prev => [...prev, AIMessage])
-    setMessages(prev => {
-      const newMessages = [...prev, AIMessage]
-      console.log('📩 Tất cả tin nhắn sau phản hồi AI:', newMessages)
-      return newMessages
-    })
+    setMessages(prev => [...prev, AIMessage])
     onUpdateLastMessage(AIResponse)
-  }
-
-  const handleVoiceRecord = () => {
-    if (!isRecording) {
-      setIsRecording(true)
-      setIsListening(true)
-      // Simulate voice recording
-      setTimeout(() => {
-        setIsRecording(false)
-        setIsListening(false)
-        // Simulate voice to text based on AI role
-        const voiceTexts = {
-          doctor: "Gần đây tôi hay bị đau đầu",
-          child: "Con nhớ bố mẹ lắm",
-          family: "Hôm nay tôi cảm thấy hơi buồn",
-          friend: "Thời tiết hôm nay đẹp quá"
-        }
-        setInputText("Chức năng hiện chưa sẵn sàng!")
-      }, 3000)
-    } else {
-      setIsRecording(false)
-      setIsListening(false)
-    }
-  }
-
-  const handlePlayVoice = (message: Message) => {
-    // Simulate text to speech
-    alert(`Đang phát âm thanh: "${message.content}"`)
   }
 
   return (
@@ -159,13 +254,13 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
             <Button variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            
+
             <Avatar className="w-12 h-12">
               <AvatarFallback className="text-xl">
                 {aiContact.avatar || '🤖'}
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">{aiContact.name}</CardTitle>
@@ -194,7 +289,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  
+
                   <div className={`max-w-xs lg:max-w-md ${message.type === 'user' ? 'order-first' : ''}`}>
                     <div
                       className={`rounded-lg px-4 py-2 ${
@@ -206,7 +301,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
                       <p className="text-sm">{message.content}</p>
                       {message.type === 'ai' && (
                         <Button
-                          onClick={() => handlePlayVoice(message)}
+                          onClick={() => speakText(message.content)}
                           variant="ghost"
                           size="sm"
                           className="mt-2 h-6 p-1 text-xs"
@@ -217,9 +312,9 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {message.timestamp.toLocaleTimeString('vi-VN', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                      {message.timestamp.toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
                     </p>
                   </div>
@@ -236,7 +331,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
             </div>
           </ScrollArea>
 
-          {/* Voice Recording Status */}
+          {/* Voice Listening Status */}
           {isListening && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
@@ -246,21 +341,21 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
             </div>
           )}
 
-          {/* Input Area Layout - New Style */}
+          {/* Input Area */}
           <div className="flex flex-col items-center gap-4 mt-4">
-            {/* Mic Button in Center */}
+            {/* Mic Button */}
             <Button
-              onClick={handleVoiceRecord}
+              onClick={() => (isListening ? stopListening() : startListening())}
               className="w-18 h-18 rounded-full shadow-lg"
-              variant={isRecording ? "destructive" : "outline"}
+              variant={isListening ? "destructive" : "outline"}
             >
-              {isRecording ? <MicOff className="w-24 h-24" /> : <Mic className="w-24 h-24" />}
+              {isListening ? <MicOff className="w-24 h-24" /> : <Mic className="w-24 h-24" />}
             </Button>
             <span className="text-xs text-muted-foreground">
-              {isRecording ? 'Đang ghi âm...' : 'Nhấn giữ mic để nói'}
+              {isListening ? 'Đang nghe...' : 'Nhấn để bắt đầu nói'}
             </span>
 
-            {/* Text input and Send */}
+            {/* Text Input and Send */}
             <div className="flex w-full gap-2">
               <Input
                 value={inputText}
@@ -269,13 +364,13 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 className="flex-1"
               />
-              <Button onClick={handleSendMessage} disabled={!inputText.trim()}>
+              <Button onClick={() => handleSendMessage()} disabled={!inputText.trim()}>
                 <Send className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
-          {/* AI Personality Info */}
+          {/* AI Personality */}
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700">
               <strong>Tính cách:</strong> {aiContact.personality}

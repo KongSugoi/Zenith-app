@@ -246,25 +246,33 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
             </div>
           )}
 
-          {/* Input Area */}
-          <div className="flex gap-2">
-            <Input
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={`Nhắn tin với ${aiContact.name}...`}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              className="flex-1"
-            />
+          {/* Input Area Layout - New Style */}
+          <div className="flex flex-col items-center gap-4 mt-4">
+            {/* Mic Button in Center */}
             <Button
               onClick={handleVoiceRecord}
+              className="w-18 h-18 rounded-full shadow-lg"
               variant={isRecording ? "destructive" : "outline"}
-              size="icon"
             >
-              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isRecording ? <MicOff className="w-24 h-24" /> : <Mic className="w-24 h-24" />}
             </Button>
-            <Button onClick={handleSendMessage} disabled={!inputText.trim()}>
-              <Send className="w-4 h-4" />
-            </Button>
+            <span className="text-xs text-muted-foreground">
+              {isRecording ? 'Đang ghi âm...' : 'Nhấn giữ mic để nói'}
+            </span>
+
+            {/* Text input and Send */}
+            <div className="flex w-full gap-2">
+              <Input
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder={`Nhắn tin với ${aiContact.name}...`}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="flex-1"
+              />
+              <Button onClick={handleSendMessage} disabled={!inputText.trim()}>
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
 
           {/* AI Personality Info */}

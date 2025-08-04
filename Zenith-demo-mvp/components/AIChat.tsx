@@ -51,7 +51,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
   const [speechError, setSpeechError] = useState<string | null>(null)
   const [interimTranscript, setInterimTranscript] = useState('')
   const [finalTranscript, setFinalTranscript] = useState('')
-  
+
   const recognitionRef = useRef<any>(null)
   const speechSynthesisRef = useRef<SpeechSynthesis | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
@@ -159,7 +159,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
   }, [])
 
   function getWelcomeMessage(ai: AIContact): string {
-    return `Chào bạn ạ! Mình là một trợ lý AI, không có tên riêng đâu ạ. Bạn có thể gọi mình là "trợ lý" hoặc "bạn đồng hành" cũng được ạ.\n\nMình ở đây để giúp đỡ bạn mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần mình giúp, bạn cứ nói nhé. Mình luôn sẵn lòng ạ.`
+    return `Cháu chào bác ạ! Cháu là một trợ lý AI, không có tên riêng đâu ạ. Bác có thể gọi cháu là "trợ lý" hoặc "bạn đồng hành" cũng được ạ.\n\nCháu ở đây để giúp đỡ bác mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần cháu giúp, bác cứ nói nhé. Cháu luôn sẵn lòng ạ.`
   }
 
   const startListening = () => {
@@ -255,9 +255,9 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={onBack}>
+            {/* <Button variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="w-4 h-4" />
-            </Button>
+            </Button> */}
 
             <Avatar className="w-12 h-12">
               <AvatarFallback className="text-xl">

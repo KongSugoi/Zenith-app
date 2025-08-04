@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.healthapp.senior',
-  appName: 'Health App - Ứng dụng Sức khỏe',
+  appName: 'ZenCare - Ứng dụng Sức khỏe',
   webDir: 'dist',
   server: {
     androidScheme: 'https'

@@ -1,4 +1,4 @@
-# Hướng dẫn chạy ứng dụng Health App trong Android Studio
+# Hướng dẫn chạy ứng dụng ZenCare App trong Android Studio
 
 ## Yêu cầu hệ thống
 
@@ -40,7 +40,7 @@ npm run build
 ### Bước 3: Khởi tạo Capacitor
 ```bash
 # Khởi tạo Capacitor (chỉ làm lần đầu)
-npx cap init "Health App" "com.healthapp.senior"
+npx cap init "ZenCare" "com.zencare.senior"
 
 # Thêm platform Android
 npx cap add android

@@ -204,7 +204,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 <Heart className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="font-semibold text-gray-900">HealthCare</h1>
+                <h1 className="font-semibold text-gray-900">ZenCare</h1>
                 <p className="text-xs text-gray-500">Ứng dụng sức khỏe thông minh</p>
               </div>
             </div>

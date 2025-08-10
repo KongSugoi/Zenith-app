@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { BookOpen, Plus, Search, Filter } from 'lucide-react'
 import { Input } from './ui/input'
+import { PageWrapper } from './PageWrapper'
 
 interface JournalEntry {
   id: string
@@ -21,7 +22,11 @@ interface JournalEntry {
   activities: string[]
 }
 
-export function HealthJournal() {
+interface HealthJournalProps {
+  onBackToMenu?: () => void;
+}
+
+export function HealthJournal({ onBackToMenu }: HealthJournalProps) {
   const [entries, setEntries] = useState<JournalEntry[]>([
     {
       id: '1',
@@ -109,7 +114,8 @@ export function HealthJournal() {
   })
 
   return (
-    <div className="space-y-6">
+    <PageWrapper title="Nhật Ký Sức Khỏe" onBackToMenu={onBackToMenu}>
+      <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -316,6 +322,7 @@ export function HealthJournal() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

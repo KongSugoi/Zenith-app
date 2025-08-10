@@ -11,6 +11,7 @@ import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { CalendarDays, Plus, Bell, Clock, Pill, Activity, Stethoscope } from 'lucide-react'
 import { vi } from 'date-fns/locale'
+import { PageWrapper } from './PageWrapper'
 
 interface CalendarEvent {
   id: string
@@ -24,7 +25,11 @@ interface CalendarEvent {
   completed?: boolean
 }
 
-export function SmartCalendar() {
+interface SmartCalendarProps {
+  onBackToMenu?: () => void;
+}
+
+export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [events, setEvents] = useState<CalendarEvent[]>([
     {
@@ -149,7 +154,8 @@ export function SmartCalendar() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageWrapper title="Lịch Thông Minh" onBackToMenu={onBackToMenu}>
+      <div className="space-y-6">
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -413,6 +419,7 @@ export function SmartCalendar() {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Avatar, AvatarFallback } from './ui/avatar'
-import { Textarea } from './ui/textarea'
+import { Badge } from './ui/badge'
 import { Input } from './ui/input'
 import { ScrollArea } from './ui/scroll-area'
 import { ArrowLeft, Mic, MicOff, Send, Volume2, Heart, Baby, User, Stethoscope } from 'lucide-react'
+import { useCommand } from '../contexts/CommandContext'
 
 interface AIContact {
   id: string
@@ -30,17 +31,31 @@ interface Message {
 }
 
 interface AIChatProps {
-  aiContact: AIContact
-  onBack: () => void
-  onUpdateLastMessage: (message: string) => void
+  aiContact?: AIContact
+  onBack?: () => void
+  onBackToMenu?: () => void
+  onUpdateLastMessage?: (message: string) => void
 }
 
-export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) {
+export function AIChat({ aiContact, onBack, onBackToMenu, onUpdateLastMessage }: AIChatProps) {
+  
+  const defaultAIContact: AIContact = {
+    id: 'default',
+    name: 'Trợ lý AI',
+    avatar: '🤖',
+    personality: 'Tận tâm, kiên nhẫn và thân thiện',
+    description: 'Trợ lý AI cho người cao tuổi',
+    isDefault: true,
+    messageCount: 0
+  }
+
+  const currentAIContact = aiContact || defaultAIContact
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       type: 'ai',
-      content: getWelcomeMessage(aiContact),
+      content: getWelcomeMessage(currentAIContact),
       timestamp: new Date(),
     }
   ])
@@ -66,6 +81,12 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
   useEffect(() => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+    }
+  }, [messages])
+  
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
   }, [messages])
 
@@ -213,7 +234,7 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
         body: JSON.stringify({ prompt })
       })
       const data = await response.json()
-      return data.reply || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?'
+      return data || 'Tôi không hiểu câu hỏi của bạn. Bạn có thể nói rõ hơn không?'
     } catch (error) {
       console.error('Lỗi gọi AI API:', error)
       return 'Đã xảy ra lỗi khi kết nối với AI. Vui lòng thử lại sau.'
@@ -237,151 +258,174 @@ export function AIChat({ aiContact, onBack, onUpdateLastMessage }: AIChatProps) 
     const AIMessage: Message = {
       id: (Date.now() + 1).toString(),
       type: 'ai',
-      content: AIResponse,
+      content: AIResponse.reply,
       timestamp: new Date(),
     }
 
-    setMessages(prev => [...prev, AIMessage])
-    onUpdateLastMessage(AIResponse)
-  }
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    if (AIResponse.command) {
+        excuteCommand(AIResponse.command)
     }
-  }, [messages])
+    
+    setMessages(prev => [...prev, AIMessage])
+    if (onUpdateLastMessage) {
+      onUpdateLastMessage(AIResponse)
+    }
+  }
+
+  const handleBack = onBack || onBackToMenu
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-4">
-            {/* <Button variant="outline" size="sm" onClick={onBack}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button> */}
-
-            <Avatar className="w-12 h-12">
-              <AvatarFallback className="text-xl">
-                {aiContact.avatar || '🤖'}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">{aiContact.name}</CardTitle>
-              </div>
-              <CardDescription>{aiContact.description}</CardDescription>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-4">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        {onBackToMenu && (
+          <div className="flex items-center gap-4 bg-white/80 backdrop-blur-sm rounded-2xl p-4 shadow-sm border border-white/20">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBackToMenu}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Quay lại Menu
+            </Button>
+            <h1 className="text-xl font-medium text-gray-800">AI Trợ Lý</h1>
           </div>
-        </CardHeader>
-      </Card>
+        )}
+        <div className="space-y-6">
+        {/* Header */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" onClick={handleBack}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
 
-      {/* Chat Interface */}
-      <Card>
-        <CardContent className="p-4">
-          {/* Chat Messages */}
-          <div ref={scrollAreaRef} className="h-96 mb-4 border rounded-lg p-4 space-y-4 overflow-y-auto">
-            <div className="space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  {message.type === 'ai' && (
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="text-sm">
-                        {aiContact.avatar || '🤖'}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
+              <Avatar className="w-12 h-12">
+                <AvatarFallback className="text-xl">
+                  {currentAIContact.avatar || '🤖'}
+                </AvatarFallback>
+              </Avatar>
 
-                  <div className={`max-w-xs lg:max-w-md ${message.type === 'user' ? 'order-first' : ''}`}>
-                    <div
+              <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">{currentAIContact.name}</CardTitle>
+                  </div>
+                <CardDescription>{currentAIContact.description}</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+
+        {/* Chat Interface */}
+        <Card>
+          <CardContent className="p-4">
+            {/* Chat Messages */}
+            <div ref={scrollAreaRef} className="h-96 mb-4 border rounded-lg p-4 space-y-4 overflow-y-auto">
+              <div className="space-y-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex gap-3 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {message.type === 'ai' && (
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="text-sm">
+                          {currentAIContact.avatar || '🤖'}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    <div className={`max-w-xs lg:max-w-md ${message.type === 'user' ? 'order-first' : ''}`}>
+                      <div
                         className={`rounded-lg px-4 py-2 ${
                           message.type === 'user'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-gray-100 text-gray-900'
                         }`}
                       >
-                      <p className="text-sm">{message.content}</p>
-                      {message.type === 'ai' && (
-                        <Button
-                          onClick={() => speakText(message.content)}
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 h-6 p-1 text-xs"
-                        >
-                          <Volume2 className="w-3 h-3" />
-                          Phát âm
-                        </Button>
-                      )}
+                        <p className="text-sm">{message.content}</p>
+                        {message.type === 'ai' && (
+                          <Button
+                            onClick={() => speakText(message.content)}
+                            variant="ghost"
+                            size="sm"
+                            className="mt-2 h-6 p-1 text-xs"
+                          >
+                            <Volume2 className="w-3 h-3" />
+                            Phát âm
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {message.timestamp.toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {message.timestamp.toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+
+                    {message.type === 'user' && (
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback className="bg-green-100 text-green-600 text-sm">
+                          Bạn
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                   </div>
-
-                  {message.type === 'user' && (
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-green-100 text-green-600 text-sm">
-                        Bạn
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Voice Listening Status */}
-          {isListening && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-green-700">Đang nghe... Hãy nói điều bạn muốn</span>
+                ))}
               </div>
             </div>
-          )}
 
-          {/* Input Area */}
-          <div className="flex flex-col items-center gap-4 mt-4">
-            {/* Mic Button */}
-            <Button
-              onClick={() => (isListening ? stopListening() : startListening())}
-              className="w-18 h-18 rounded-full shadow-lg"
-              variant={isListening ? "destructive" : "outline"}
-            >
-              {isListening ? <MicOff className="w-24 h-24" /> : <Mic className="w-24 h-24" />}
-            </Button>
-            <span className="text-xs text-muted-foreground">
-              {isListening ? 'Đang nghe...' : 'Nhấn để bắt đầu nói'}
-            </span>
+            {/* Voice Listening Status */}
+            {isListening && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-700">Đang nghe... Hãy nói điều bạn muốn</span>
+                </div>
+              </div>
+            )}
 
-            {/* Text Input and Send */}
-            <div className="flex w-full gap-2">
-              <Input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Nhắn tin với ${aiContact.name}...`}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                className="flex-1"
-              />
-              <Button onClick={() => handleSendMessage()} disabled={!inputText.trim()}>
-                <Send className="w-4 h-4" />
+            {/* Input Area */}
+            <div className="flex flex-col items-center gap-4 mt-4">
+              {/* Mic Button */}
+              <Button
+                onClick={() => (isListening ? stopListening() : startListening())}
+                className="w-18 h-18 rounded-full shadow-lg"
+                variant={isListening ? "destructive" : "outline"}
+              >
+                {isListening ? <MicOff className="w-24 h-24" /> : <Mic className="w-24 h-24" />}
               </Button>
-            </div>
-          </div>
+              <span className="text-xs text-muted-foreground">
+                {isListening ? 'Đang nghe...' : 'Nhấn để bắt đầu nói'}
+              </span>
 
-          {/* AI Personality */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>Tính cách:</strong> {aiContact.personality}
-            </p>
+              {/* Text Input and Send */}
+              <div className="flex w-full gap-2">
+                <Input
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={`Nhắn tin với ${currentAIContact.name}...`}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="flex-1"
+                />
+                <Button onClick={() => handleSendMessage()} disabled={!inputText.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* AI Personality */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Tính cách:</strong> {currentAIContact.personality}
+              </p>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
+  </div>
   )
 }

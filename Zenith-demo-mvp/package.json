@@ -88,7 +88,7 @@
     "tailwindcss": "^4.1.11",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.2.0",
-    "vite": "^4.5.0"
+    "vite": "^7.0.6"
   },
   "keywords": [
     "health",

@@ -3,7 +3,7 @@ import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Badge } from './ui/badge'
-import { Heart, MessageCircle, Calendar, BookOpen, User, LogOut, Activity, Bell } from 'lucide-react'
+import { Heart, MessageCircle, Calendar, BookOpen, User, LogOut, Activity, Bell, ArrowLeft } from 'lucide-react'
 import { AIContacts } from './AIContacts'
 import { HealthData } from './HealthData'
 import { HealthJournal } from './HealthJournal'
@@ -18,11 +18,12 @@ interface User {
 interface DashboardProps {
   user: User
   onLogout: () => void
+  onBackToMenu?: () => void
 }
 
 type TabId = 'dashboard' | 'ai-contacts' | 'health' | 'journal' | 'calendar' | 'profile'
 
-export function Dashboard({ user, onLogout }: DashboardProps) {
+export function Dashboard({ user, onLogout, onBackToMenu }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
 
   const menuItems = [
@@ -200,15 +201,21 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         <div className="max-w-ultrawide mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
-              <div 
-                className="p-2 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition"
-                onClick={() => setActiveTab('dashboard')}
-                title="Quay về trang Tổng quan"
-              >
+              {onBackToMenu && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onBackToMenu}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
+              )}
+              <div className="p-2 bg-blue-50 rounded-lg">
                 <Heart className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="font-semibold text-gray-900">ZenCare</h1>
+                <h1 className="font-semibold text-gray-900">HealthCare</h1>
                 <p className="text-xs text-gray-500">Ứng dụng sức khỏe thông minh</p>
               </div>
             </div>

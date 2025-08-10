@@ -7,8 +7,13 @@ import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
 import { Heart, Bluetooth, Plus, TrendingDown, TrendingUp } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { PageWrapper } from './PageWrapper'
 
-export function HealthData() {
+interface HealthDataProps {
+  onBackToMenu?: () => void;
+}
+
+export function HealthData({ onBackToMenu }: HealthDataProps) {
   const [connectedDevices, setConnectedDevices] = useState([
     { id: 'heart-monitor', name: 'Đồng hồ thông minh Samsung', status: 'connected', lastSync: '5 phút trước' },
     { id: 'fitness-band', name: 'Vòng đeo tay Xiaomi', status: 'connected', lastSync: '10 phút trước' },
@@ -59,7 +64,8 @@ export function HealthData() {
   const currentStatus = getHeartRateStatus(currentHeartRate)
 
   return (
-    <div className="space-y-6">
+    <PageWrapper title="Dữ Liệu Sức Khỏe" onBackToMenu={onBackToMenu}>
+      <div className="space-y-6">
       {/* Device Status */}
       <Card>
         <CardHeader>
@@ -330,6 +336,7 @@ export function HealthData() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </PageWrapper>
   )
 }

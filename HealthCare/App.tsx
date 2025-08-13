@@ -8,13 +8,13 @@ import { SmartCalendar } from "./components/SmartCalendar";
 import { HealthData } from "./components/HealthData";
 import { HealthJournal } from "./components/HealthJournal";
 import { HeartRateMonitor } from "./components/HeartRateMonitor";
-import { NotificationManager } from "./components/NotificationManager";
+import { CalendarEvent, NotificationManager } from "./components/NotificationManager";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
-import { LocalNotifications } from '@capacitor/local-notifications';
-import { TextToSpeech } from "@capacitor-community/text-to-speech";
+// import { Preferences } from "@capacitor/preferences"; 
+// import axios from 'axios';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -24,67 +24,82 @@ interface User {
 type Page = 'ai-chat' | 'profile' | 'calendar' | 'health-data' | 'health-journal' | 'heart-rate' | 'settings';
 
 export default function App() {
+
+  // const SYNTHESIZE_API = import.meta.env.VITE_SYNTHESIZE_URL;
+
   const [user, setUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('ai-chat');
 
-  const sendNotificationAndSpeak = async (title: string, message: string) => {
-    try {
-      // Xin quyền
-      await LocalNotifications.requestPermissions();
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>(() => {
+    // Initialize with some default events for testing
+    const now = new Date();
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    return [
+      {
+        id: 'default-1',
+        title: 'Uống thuốc huyết áp',
+        description: 'Losartan 50mg - 1 viên',
+        date: now,
+        time: '08:00',
+        type: 'medication'
+      },
+      {
+        id: 'default-2',
+        title: 'Tập thể dục buổi chiều',
+        description: 'Đi bộ 30 phút trong công viên',
+        date: now,
+        time: '16:00',
+        type: 'exercise'
+      },
+      {
+        id: 'default-3',
+        title: 'Khám định kỳ tim mạch',
+        description: 'Bác sĩ Nguyễn Văn C - Bệnh viện Tim Mạch',
+        date: tomorrow,
+        time: '14:00',
+        type: 'appointment'
+      },
+      {
+        id: 'default-4',
+        title: 'Uống thuốc tiểu đường',
+        description: 'Metformin 500mg - 2 viên',
+        date: now,
+        time: '19:00',
+        type: 'medication'
+      }
+    ];
+  });
 
-      // Gửi thông báo
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            id: Date.now(),
-            title,
-            body: message,
-            schedule: { at: new Date(Date.now() + 500) },
-            sound: "default",
-            smallIcon: "ic_launcher"
-          },
-        ],
-      });
-
-      // Đọc thông báo
-      await TextToSpeech.speak({
-        text: `${title}. ${message}`,
-        lang: "vi-VN",
-        rate: 1.0,
-        pitch: 1.0,
-        volume: 1.0,
-        category: "playback",
-      });
-    } catch (err) {
-      console.error("Notification/TTS error:", err);
-    }
-  };
-
-  const handleLogin = (email: string) => {  //, password: string) => {
+  const handleLogin = (email: string, password: string) => {
+    // Mock authentication - in real app, this would call an API
+    if (email && password) {
       const mockUser = {
-        id: email, // Use email as a simple unique id, or generate a UUID if needed
+        id: "1",
         name: email
           .split("@")[0]
           .replace(/[0-9]/g, "")
           .replace(/\./g, " "),
         email: email,
       };
-
       setUser(mockUser);
       setCurrentPage('ai-chat');
       toast.success(
         `Chào mừng ${mockUser.name}! Đăng nhập thành công.`,
-      )
-    
+      );
+    } else {
+      toast.error("Vui lòng kiểm tra lại email và mật khẩu");
+    }
   };
 
   const handleRegister = (
     email: string,
     password: string,
-    name: string) => {
+    name: string,
+  ) => {
     // Mock registration - in real app, this would call an API
     if (email && password && name) {
-      const newUser = { id: email, name, email };
+      const newUser = { id: "1", name, email };
       setUser(newUser);
       setCurrentPage('ai-chat');
       toast.success(
@@ -94,7 +109,7 @@ export default function App() {
       toast.error("Vui lòng điền đầy đủ thông tin");
     }
   };
-
+  
   const handleLogout = () => {
     setUser(null);
     setCurrentPage('ai-chat');
@@ -107,6 +122,24 @@ export default function App() {
 
   const handleBackToChat = () => {
     setCurrentPage('ai-chat');
+  };
+
+  // Helper function to add new calendar event
+  const handleAddCalendarEvent = (event: CalendarEvent) => {
+    setCalendarEvents(prev => [...prev, event]);
+    toast.success(`✅ Đã thêm sự kiện: ${event.title}`);
+  };
+
+  // Helper function to update calendar event
+  const handleUpdateCalendarEvent = (eventId: string, updates: Partial<CalendarEvent>) => {
+    setCalendarEvents(prev => prev.map(event => 
+      event.id === eventId ? { ...event, ...updates } : event
+    ));
+  };
+
+  // Helper function to delete calendar event
+  const handleDeleteCalendarEvent = (eventId: string) => {
+    setCalendarEvents(prev => prev.filter(event => event.id !== eventId));
   };
 
   if (!user) {
@@ -133,13 +166,17 @@ export default function App() {
       case 'profile':
         return (
           <UserProfile
-            user={user}
+            userId={Number(user.id)}
             onBackToMenu={handleBackToChat}
           />
         );
       case 'calendar':
         return (
           <SmartCalendar
+            events={calendarEvents}
+            onAddEvent={handleAddCalendarEvent}
+            onUpdateEvent={handleUpdateCalendarEvent}
+            onDeleteEvent={handleDeleteCalendarEvent}
             onBackToMenu={handleBackToChat}
           />
         );
@@ -172,11 +209,11 @@ export default function App() {
   };
 
   return (
-    <NotificationManager>
+    <NotificationManager events={calendarEvents} onUpdateEvent={handleUpdateCalendarEvent}>
       {renderCurrentPage()}
       <Toaster position="top-right" />
       
-      {process.env.NODE_ENV === 'development' && (
+      {/* {process.env.NODE_ENV === 'development' && (
         <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs font-mono z-40 max-w-[200px] sm:max-w-xs">
           <div className="text-yellow-300 font-semibold mb-2">🔔 DEBUG</div>
           <div className="space-y-1 mb-2 text-xs">
@@ -197,7 +234,7 @@ export default function App() {
             🚨 TEST
           </button>
         </div>
-      )}
+      )} */}
     </NotificationManager>
   )
 }

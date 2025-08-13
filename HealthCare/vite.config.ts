@@ -25,8 +25,15 @@ export default defineConfig({
     proxy: {
       '/chat': {
         target: 'http://18.215.161.7:6000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/chat/, '/chat')
+        changeOrigin: true
+      },
+      '/transcribe': {
+        target: 'http://18.215.161.7:5000',
+        changeOrigin: true
+      },
+      '/synthesize': {
+        target: 'http://18.215.161.7:7000',
+        changeOrigin: true
       }
     }
   },

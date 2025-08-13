@@ -13,6 +13,7 @@ interface AuthFormProps {
 
 export function AuthForm({ onLogin, onRegister }: AuthFormProps) {
   const [loginData, setLoginData] = useState({ email: '', password: '' })
+
   const [registerData, setRegisterData] = useState({ 
     name: '', 
     email: '', 
@@ -20,19 +21,19 @@ export function AuthForm({ onLogin, onRegister }: AuthFormProps) {
     confirmPassword: '' 
   })
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    onLogin(loginData.email, loginData.password)
-  }
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onLogin(loginData.email, loginData.password);
+  };
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (registerData.password !== registerData.confirmPassword) {
-      alert('Mật khẩu xác nhận không khớp')
-      return
+      alert('Mật khẩu xác nhận không khớp');
+      return;
     }
-    onRegister(registerData.email, registerData.password, registerData.name)
-  }
+    onRegister(registerData.email, registerData.password, registerData.name);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex flex-col justify-center py-6 px-4">
@@ -63,7 +64,7 @@ export function AuthForm({ onLogin, onRegister }: AuthFormProps) {
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-5">
+              <form onSubmit={handleLoginSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-base">Email của bạn</Label>
                   <Input
@@ -106,7 +107,7 @@ export function AuthForm({ onLogin, onRegister }: AuthFormProps) {
             </TabsContent>
             
             <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name" className="text-base">Họ và tên</Label>
                   <Input

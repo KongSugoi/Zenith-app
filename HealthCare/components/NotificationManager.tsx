@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { NotificationAlert } from './NotificationAlert'
 import { toast } from 'sonner'
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string
   title: string
   description: string
@@ -12,66 +12,18 @@ interface CalendarEvent {
   time: string
   type: 'medication' | 'appointment' | 'exercise' | 'other'
   completed?: boolean
+  snoozedUntil?: Date
 }
 
 interface NotificationManagerProps {
   children: React.ReactNode
+  events: CalendarEvent[]
+  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
 }
 
-export function NotificationManager({ children }: NotificationManagerProps) {
+export function NotificationManager({ children, events, onUpdateEvent }: NotificationManagerProps) {
   const [activeNotifications, setActiveNotifications] = useState<CalendarEvent[]>([])
-  const [events, setEvents] = useState<CalendarEvent[]>([])
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Simplified mock events với short titles
-  const initializeMockEvents = useCallback(() => {
-    const now = new Date()
-    const testEvents: CalendarEvent[] = [
-      {
-        id: '1',
-        title: 'Uống thuốc huyết áp',
-        description: 'Losartan 50mg',
-        date: now,
-        time: new Date(now.getTime() + 10000).toTimeString().slice(0, 5), // 10 seconds
-        type: 'medication'
-      },
-      {
-        id: '2',
-        title: 'Đo huyết áp',
-        description: 'Đo và ghi chép',
-        date: now,
-        time: new Date(now.getTime() + 30000).toTimeString().slice(0, 5), // 30 seconds
-        type: 'other'
-      },
-      {
-        id: '3',
-        title: 'Tập thể dục',
-        description: 'Đi bộ 20 phút',
-        date: now,
-        time: new Date(now.getTime() + 60000).toTimeString().slice(0, 5), // 1 minute
-        type: 'exercise'
-      },
-      {
-        id: '4',
-        title: 'Uống thuốc tiểu đường',
-        description: 'Metformin 500mg',
-        date: now,
-        time: '08:00',
-        type: 'medication'
-      },
-      {
-        id: '5',
-        title: 'Khám tim mạch',
-        description: 'Bác sĩ tim mạch',
-        date: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-        time: '14:00',
-        type: 'appointment'
-      }
-    ]
-
-    setEvents(testEvents)
-    console.log('Simplified mock events initialized:', testEvents)
-  }, [])
 
   // Check if it's time for any events
   const checkEventTimes = useCallback(() => {
@@ -106,25 +58,25 @@ export function NotificationManager({ children }: NotificationManagerProps) {
         console.log('New due events found:', newEvents)
         setActiveNotifications(prev => [...prev, ...newEvents])
         
-        // Simple toast
-        toast.info(`⏰ ${newEvents.length} nhắc nhở cần thực hiện`)
+        // Simple toast notification
+        const eventTitles = newEvents.map(e => e.title).join(', ')
+        toast.info(`⏰ ${newEvents.length} nhắc nhở: ${eventTitles}`)
       }
     }
   }, [events, activeNotifications])
 
-  useEffect(() => {
-    initializeMockEvents()
-  }, [initializeMockEvents])
-
+  // Start checking for due events
   useEffect(() => {
     if (events.length > 0) {
+      // Initial check
       checkEventTimes()
       
+      // Set up interval to check every 10 seconds
       checkIntervalRef.current = setInterval(() => {
         checkEventTimes()
       }, 10000)
 
-      console.log('Notification checking started')
+      console.log('Notification checking started with', events.length, 'events')
     }
 
     return () => {
@@ -134,57 +86,71 @@ export function NotificationManager({ children }: NotificationManagerProps) {
     }
   }, [events, checkEventTimes])
 
+  // Handle notification confirmation
   const handleConfirmNotification = useCallback(() => {
     // Mark all active events as completed
-    const eventIds = activeNotifications.map(event => event.id)
-    setEvents(prev => prev.map(event => 
-      eventIds.includes(event.id) ? { ...event, completed: true } : event
-    ))
+    activeNotifications.forEach(event => {
+      onUpdateEvent(event.id, { completed: true })
+    })
     
     setActiveNotifications([])
-    toast.success('✅ Đã xác nhận')
-  }, [activeNotifications])
+    toast.success(`✅ Đã xác nhận ${activeNotifications.length} nhắc nhở`)
+  }, [activeNotifications, onUpdateEvent])
 
-  // Testing functions
+  // Testing functions for development
   const addTestEvent = useCallback((offsetSeconds: number = 5) => {
     const now = new Date()
     const testEvent: CalendarEvent = {
-      id: `test-${Date.now()}`,
-      title: 'Test nhắc nhở',
-      description: 'Test',
+      id: `test-notification-${Date.now()}`,
+      title: 'Test nhắc nhở ngay',
+      description: 'Test notification',
       date: now,
       time: new Date(now.getTime() + offsetSeconds * 1000).toTimeString().slice(0, 5),
       type: 'other'
     }
     
-    setEvents(prev => [...prev, testEvent])
-    toast.info(`🧪 Test event sau ${offsetSeconds}s`)
+    // This would need to be handled by parent component in real implementation
+    console.log('Would add test event:', testEvent)
+    toast.info(`🧪 Test notification sau ${offsetSeconds}s (cần add qua SmartCalendar)`)
   }, [])
 
+  const triggerTestNotification = useCallback(() => {
+    const testEvent: CalendarEvent = {
+      id: `immediate-test-${Date.now()}`,
+      title: 'Test ngay lập tức',
+      description: 'Test immediate notification',
+      date: new Date(),
+      time: new Date().toTimeString().slice(0, 5),
+      type: 'medication'
+    }
+    setActiveNotifications([testEvent])
+  }, [])
+
+  // Expose test functions to window for debug panel
   useEffect(() => {
     (window as any).addTestEvent = addTestEvent;
-    (window as any).triggerTestNotification = () => {
-      const testEvent: CalendarEvent = {
-        id: `immediate-test-${Date.now()}`,
-        title: 'Test ngay lập tức',
-        description: 'Test immediate',
-        date: new Date(),
-        time: new Date().toTimeString().slice(0, 5),
-        type: 'medication'
-      }
-      setActiveNotifications([testEvent])
-    }
+    (window as any).triggerTestNotification = triggerTestNotification;
     return () => {
       delete (window as any).addTestEvent;
       delete (window as any).triggerTestNotification;
     }
-  }, [addTestEvent])
+  }, [addTestEvent, triggerTestNotification])
+
+  // Debug logging
+  useEffect(() => {
+    console.log('NotificationManager: Events updated', {
+      totalEvents: events.length,
+      pendingEvents: events.filter(e => !e.completed).length,
+      todayEvents: events.filter(e => e.date.toDateString() === new Date().toDateString()).length,
+      activeNotifications: activeNotifications.length
+    })
+  }, [events, activeNotifications])
 
   return (
     <>
       {children}
       
-      {/* Show minimalist notification when active */}
+      {/* Show notification alert when active */}
       {activeNotifications.length > 0 && (
         <NotificationAlert
           events={activeNotifications}

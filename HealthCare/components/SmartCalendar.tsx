@@ -1,39 +1,41 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Calendar } from './ui/calendar'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
-import { CalendarDays, Plus, Pill, Activity, Stethoscope, Bell, Clock} from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { CalendarDays, Plus, Pill, Activity, Stethoscope, Bell, Clock, TestTube } from 'lucide-react'
 import { vi } from 'date-fns/locale'
 import { PageWrapper } from './PageWrapper'
+import { SeniorTimePicker } from './SeniorTimePicker'
 import { toast } from 'sonner'
-
-interface CalendarEvent {
-  id: string
-  title: string
-  description: string
-  date: Date
-  time: string
-  type: 'medication' | 'appointment' | 'exercise' | 'other'
-  completed?: boolean
-  snoozedUntil?: Date
-}
+import { CalendarEvent } from './NotificationManager'
 
 interface SmartCalendarProps {
+  events: CalendarEvent[]
+  onAddEvent: (event: CalendarEvent) => void
+  onUpdateEvent: (eventId: string, updates: Partial<CalendarEvent>) => void
+  onDeleteEvent?: (eventId: string) => void
   onBackToMenu?: () => void
 }
 
-export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
+export function SmartCalendar({ 
+  events, 
+  onAddEvent, 
+  onUpdateEvent, 
+  onDeleteEvent,
+  onBackToMenu 
+}: SmartCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
-  const [events, setEvents] = useState<CalendarEvent[]>([])
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
-    time: ''
+    time: '',
+    type: 'other' as 'medication' | 'appointment' | 'exercise' | 'other'
   })
   const [isAddingEvent, setIsAddingEvent] = useState(false)
 
@@ -43,53 +45,6 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
     exercise: { icon: Activity, label: 'Tập luyện', color: 'bg-green-100 text-green-800 border-green-200' },
     other: { icon: CalendarDays, label: 'Khác', color: 'bg-gray-100 text-gray-800 border-gray-200' }
   }
-
-  // Initialize events with some scheduled for today and near future for testing
-  const initializeEvents = useCallback(() => {
-    const now = new Date()
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-    
-    const initialEvents: CalendarEvent[] = [
-      {
-        id: '1',
-        title: 'Uống thuốc huyết áp',
-        description: 'Losartan 50mg - 1 viên',
-        date: now,
-        time: '08:00',
-        type: 'medication'
-      },
-      {
-        id: '2',
-        title: 'Tập thể dục buổi chiều',
-        description: 'Đi bộ 30 phút trong công viên',
-        date: now,
-        time: '16:00',
-        type: 'exercise'
-      },
-      {
-        id: '3',
-        title: 'Khám định kỳ tim mạch',
-        description: 'Bác sĩ Nguyễn Văn C - Bệnh viện Tim Mạch',
-        date: tomorrow,
-        time: '14:00',
-        type: 'appointment'
-      },
-      {
-        id: '4',
-        title: 'Uống thuốc tiểu đường',
-        description: 'Metformin 500mg - 2 viên',
-        date: now,
-        time: '19:30',
-        type: 'medication'
-      }
-    ]
-
-    setEvents(initialEvents)
-  }, [])
-
-  useEffect(() => {
-    initializeEvents()
-  }, [initializeEvents])
 
   const getEventsForDate = (date: Date) => {
     return events.filter(event => 
@@ -129,43 +84,39 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
       description: newEvent.description,
       date: selectedDate,
       time: newEvent.time,
-      type: 'other'
+      type: newEvent.type
     }
 
-    setEvents(prev => [...prev, event])
-    setNewEvent({ title: '', description: '', time: '' })
+    onAddEvent(event)
+    setNewEvent({ title: '', description: '', time: '', type: 'other' })
     setIsAddingEvent(false)
-    toast.success('✅ Đã thêm sự kiện mới!')
   }
 
   const handleCompleteEvent = (eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId ? { ...event, completed: !event.completed } : event
-    ))
-    
     const event = events.find(e => e.id === eventId)
     if (event) {
+      onUpdateEvent(eventId, { completed: !event.completed })
       toast.success(event.completed ? '↩️ Đã bỏ đánh dấu hoàn thành' : '✅ Đã đánh dấu hoàn thành')
     }
   }
 
   // Add quick test event function
-  // const addQuickTestEvent = () => {
-  //   const now = new Date()
-  //   const testTime = new Date(now.getTime() + 10000) // 10 seconds from now
+  const addQuickTestEvent = () => {
+    const now = new Date()
+    const testTime = new Date(now.getTime() + 10000) // 10 seconds from now
     
-  //   const testEvent: CalendarEvent = {
-  //     id: `test-${Date.now()}`,
-  //     title: 'Test Nhắc Nhở',
-  //     description: 'Đây là sự kiện test để kiểm tra thông báo',
-  //     date: now,
-  //     time: testTime.toTimeString().slice(0, 5),
-  //     type: 'medication'
-  //   }
+    const testEvent: CalendarEvent = {
+      id: `test-${Date.now()}`,
+      title: 'Test Nhắc Nhở',
+      description: 'Đây là sự kiện test để kiểm tra thông báo',
+      date: now,
+      time: testTime.toTimeString().slice(0, 5),
+      type: 'medication'
+    }
 
-  //   setEvents(prev => [...prev, testEvent])
-  //   toast.success(`🧪 Đã thêm test event - sẽ thông báo sau 10 giây`)
-  // }
+    onAddEvent(testEvent)
+    toast.success(`🧪 Đã thêm test event - sẽ thông báo sau 10 giây`)
+  }
 
   const isEventDue = (event: CalendarEvent) => {
     const now = new Date()
@@ -182,11 +133,23 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
     return false
   }
 
+  // Get time description for display
+  const getTimeDescription = (time: string) => {
+    const hour = parseInt(time.split(':')[0])
+    if (hour >= 5 && hour < 9) return '🌅 Sáng sớm'
+    if (hour >= 9 && hour < 12) return '☀️ Buổi sáng'
+    if (hour >= 12 && hour < 14) return '🌞 Buổi trưa'
+    if (hour >= 14 && hour < 18) return '☀️ Buổi chiều'
+    if (hour >= 18 && hour < 21) return '🌅 Buổi tối'
+    if (hour >= 21 || hour < 5) return '🌙 Ban đêm'
+    return ''
+  }
+
   return (
     <PageWrapper title="Lịch Sức Khỏe" onBackToMenu={onBackToMenu}>
       <div className="max-w-6xl mx-auto space-y-6">
         
-        {/* Today's Summary với Notification Status */}
+        {/* Today's Summary với Live Data */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
@@ -230,7 +193,7 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
             </CardContent>
           </Card>
 
-          {/* <Card>
+          <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-red-100 rounded-lg">
@@ -249,11 +212,11 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
                 </div>
               </div>
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Calendar */}
+          {/* Calendar & Add Event */}
           <Card className="lg:col-span-1">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -282,35 +245,61 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
                   Thêm sự kiện
                 </Button>
               ) : (
-                <div className="space-y-3 p-3 border rounded-lg bg-gray-50">
-                  <Input
-                    value={newEvent.title}
-                    onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
-                    placeholder="Tiêu đề sự kiện"
-                  />
+                <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                  {/* Event Title */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Tên sự kiện</label>
+                    <Input
+                      value={newEvent.title}
+                      onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                      placeholder="Ví dụ: Uống thuốc huyết áp"
+                      className="text-base"
+                    />
+                  </div>
                   
-                  <Textarea
-                    value={newEvent.description}
-                    onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
-                    placeholder="Mô tả (tùy chọn)"
-                    rows={2}
-                  />
+                  {/* Event Type */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Loại sự kiện</label>
+                    <Select 
+                      value={newEvent.type} 
+                      onValueChange={(value: 'medication' | 'appointment' | 'exercise' | 'other') => 
+                        setNewEvent({...newEvent, type: value})
+                      }
+                    >
+                      <SelectTrigger className="text-base">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="medication">💊 Thuốc</SelectItem>
+                        <SelectItem value="appointment">🏥 Hẹn khám</SelectItem>
+                        <SelectItem value="exercise">🏃 Tập luyện</SelectItem>
+                        <SelectItem value="other">📅 Khác</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   
-                  <Input
-                    type="time"
-                    value={newEvent.time}
-                    onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
-                  />
+                  {/* Description */}
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Ghi chú (tùy chọn)</label>
+                    <Textarea
+                      value={newEvent.description}
+                      onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+                      placeholder="Ví dụ: Losartan 50mg - 1 viên"
+                      rows={2}
+                      className="text-base"
+                    />
+                  </div>
                   
+                  {/* Action Buttons */}
                   <div className="flex gap-2">
-                    <Button onClick={handleAddEvent} className="flex-1">
+                    <Button onClick={handleAddEvent} className="flex-1" disabled={!newEvent.title || !newEvent.time}>
                       Thêm
                     </Button>
                     <Button 
                       variant="outline" 
                       onClick={() => {
                         setIsAddingEvent(false)
-                        setNewEvent({ title: '', description: '', time: '' })
+                        setNewEvent({ title: '', description: '', time: '', type: 'other' })
                       }}
                       className="flex-1"
                     >
@@ -322,8 +311,28 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
             </CardContent>
           </Card>
 
+          {/* Senior-Friendly Time Picker */}
+          {isAddingEvent && (
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-600" />
+                  Chọn thời gian
+                </CardTitle>
+                <CardDescription>Chọn khung giờ phù hợp</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SeniorTimePicker
+                  value={newEvent.time}
+                  onChange={(time) => setNewEvent({...newEvent, time})}
+                  activityType={newEvent.type}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           {/* Events for Selected Date */}
-          <Card className="lg:col-span-1">
+          <Card className={isAddingEvent ? "lg:col-span-2 xl:col-span-1" : "lg:col-span-1"}>
             <CardHeader>
               <CardTitle>
                 {selectedDate?.toLocaleDateString('vi-VN', { 
@@ -332,7 +341,9 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
                   month: 'long' 
                 })}
               </CardTitle>
-              <CardDescription>Lịch trình trong ngày này</CardDescription>
+              <CardDescription>
+                Lịch trình trong ngày này ({selectedDate && getEventsForDate(selectedDate).length} sự kiện)
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3 max-h-96 overflow-y-auto">
@@ -343,19 +354,19 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
                   return (
                     <div 
                       key={event.id} 
-                      className={`p-3 border rounded-lg transition-colors ${
+                      className={`p-4 border rounded-lg transition-colors ${
                         isDue ? 'bg-red-50 border-red-200 animate-pulse' : 
                         event.completed ? 'bg-green-50 border-green-200' : 'hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <EventIcon className={`w-4 h-4 mt-1 flex-shrink-0 ${
+                        <EventIcon className={`w-5 h-5 mt-1 flex-shrink-0 ${
                           isDue ? 'text-red-600' : 
                           event.completed ? 'text-green-600' : 'text-muted-foreground'
                         }`} />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <p className={`text-sm font-medium ${
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <p className={`font-medium ${
                               event.completed ? 'line-through text-gray-500' : ''
                             }`}>
                               {event.title}
@@ -370,24 +381,44 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground mb-1">{event.time}</p>
+                          
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-blue-600">{event.time}</span>
+                            <span className="text-sm text-muted-foreground">
+                              {getTimeDescription(event.time)}
+                            </span>
+                          </div>
+                          
                           {event.description && (
-                            <p className="text-xs text-muted-foreground">{event.description}</p>
+                            <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
                           )}
+                          
                           {event.snoozedUntil && (
-                            <p className="text-xs text-orange-600 mt-1">
+                            <p className="text-xs text-orange-600">
                               ⏰ Đã hoãn đến {event.snoozedUntil.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant={event.completed ? "default" : "outline"}
-                          onClick={() => handleCompleteEvent(event.id)}
-                          className="flex-shrink-0"
-                        >
-                          {event.completed ? "✓" : "○"}
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            size="sm"
+                            variant={event.completed ? "default" : "outline"}
+                            onClick={() => handleCompleteEvent(event.id)}
+                            className="flex-shrink-0"
+                          >
+                            {event.completed ? "✓" : "○"}
+                          </Button>
+                          {onDeleteEvent && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => onDeleteEvent(event.id)}
+                              className="flex-shrink-0 text-red-600 hover:bg-red-50"
+                            >
+                              🗑️
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
@@ -404,54 +435,59 @@ export function SmartCalendar({ onBackToMenu }: SmartCalendarProps) {
           </Card>
 
           {/* Upcoming Events */}
-          <Card className="lg:col-span-2 xl:col-span-1">
-            <CardHeader>
-              <CardTitle>Sự kiện sắp tới</CardTitle>
-              <CardDescription>Events gần nhất có thông báo</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {getUpcomingEvents().map((event) => {
-                  const EventIcon = eventTypes[event.type].icon
-                  const isToday = event.date.toDateString() === new Date().toDateString()
-                  const isDue = isEventDue(event)
-                  
-                  return (
-                    <div 
-                      key={event.id} 
-                      className={`flex items-center gap-3 p-2 rounded-lg transition-colors ${
-                        isDue ? 'bg-red-50 border border-red-200' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <EventIcon className={`w-4 h-4 ${
-                        isDue ? 'text-red-600' : 'text-muted-foreground'
-                      }`} />
-                      <div className="flex-1">
-                        <p className={`text-sm ${isDue ? 'font-medium text-red-800' : ''}`}>
-                          {event.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {isToday ? 'Hôm nay' : event.date.toLocaleDateString('vi-VN')} - {event.time}
-                        </p>
+          {!isAddingEvent && (
+            <Card className="lg:col-span-2 xl:col-span-1">
+              <CardHeader>
+                <CardTitle>Sự kiện sắp tới</CardTitle>
+                <CardDescription>Events gần nhất có thông báo</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {getUpcomingEvents().map((event) => {
+                    const EventIcon = eventTypes[event.type].icon
+                    const isToday = event.date.toDateString() === new Date().toDateString()
+                    const isDue = isEventDue(event)
+                    
+                    return (
+                      <div 
+                        key={event.id} 
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                          isDue ? 'bg-red-50 border border-red-200' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <EventIcon className={`w-5 h-5 ${
+                          isDue ? 'text-red-600' : 'text-muted-foreground'
+                        }`} />
+                        <div className="flex-1">
+                          <p className={`font-medium ${isDue ? 'text-red-800' : ''}`}>
+                            {event.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{isToday ? 'Hôm nay' : event.date.toLocaleDateString('vi-VN')}</span>
+                            <span>•</span>
+                            <span className="font-medium">{event.time}</span>
+                            <span>{getTimeDescription(event.time)}</span>
+                          </div>
+                        </div>
+                        {isDue && (
+                          <Bell className="w-4 h-4 text-red-500 animate-pulse" />
+                        )}
+                        {event.completed && (
+                          <span className="text-green-600">✓</span>
+                        )}
                       </div>
-                      {isDue && (
-                        <Bell className="w-3 h-3 text-red-500 animate-pulse" />
-                      )}
-                      {event.completed && (
-                        <span className="text-green-600 text-xs">✓</span>
-                      )}
+                    )
+                  })}
+                  
+                  {getUpcomingEvents().length === 0 && (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-sm">Không có sự kiện sắp tới</p>
                     </div>
-                  )
-                })}
-                
-                {getUpcomingEvents().length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">Không có sự kiện sắp tới</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </PageWrapper>

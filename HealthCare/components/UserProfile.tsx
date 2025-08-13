@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Input } from './ui/input'
@@ -13,26 +14,14 @@ import { Separator } from './ui/separator'
 import { User, Edit, Save, X, Shield, Bell, Database, Activity, Calendar, Heart, MessageCircle, LogOut, Lock, Key, ArrowLeft } from 'lucide-react'
 
 interface UserProfileProps {
-  user: { name: string; email: string }
+  userId: number
   onLogout?: () => void
   onBackToMenu?: () => void
 }
 
-export function UserProfile({ user, onLogout, onBackToMenu }: UserProfileProps) {
+export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [profileData, setProfileData] = useState({
-    name: user.name,
-    email: user.email,
-    phone: '+84 123 456 789',
-    dateOfBirth: '1960-05-15',
-    gender: 'male',
-    address: '123 Đường ABC, Quận 1, TP.HCM',
-    emergencyContact: 'Nguyễn Thị B - +84 987 654 321',
-    medicalHistory: 'Tăng huyết áp, tiểu đường type 2',
-    allergies: 'Penicillin, hải sản',
-    currentMedications: 'Losartan 50mg (1 viên/ngày), Metformin 500mg (2 viên/ngày)',
-    doctorInfo: 'Bác sĩ Nguyễn Văn C - Bệnh viện Tim Mạch'
-  })
+  const [profileData, setProfileData] = useState<any>(null)
 
   const [preferences, setPreferences] = useState({
     notifications: true,
@@ -41,10 +30,21 @@ export function UserProfile({ user, onLogout, onBackToMenu }: UserProfileProps) 
     weeklyReports: true
   })
 
+  useEffect(() => {
+    axios
+      .get(` https://f27d028d8344.ngrok-free.app/api/users/${userId}`)
+      .then(res => setProfileData(res.data))
+      .catch(err => console.error(err))
+  }, [userId])
+
   const handleSave = () => {
-    // In real app, this would save to database
-    setIsEditing(false)
-    alert('Đã lưu thông tin cá nhân!')
+    axios
+      .put(` https://f27d028d8344.ngrok-free.app/api/users/${userId}`, profileData)
+      .then(() => {
+        setIsEditing(false)
+        alert('Đã lưu thông tin cá nhân!')
+      })
+      .catch(err => console.error(err))
   }
 
   const handleCancel = () => {
@@ -66,7 +66,6 @@ export function UserProfile({ user, onLogout, onBackToMenu }: UserProfileProps) 
               className="text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Quay lại Menu
             </Button>
             <h1 className="text-xl font-medium text-gray-800">Hồ sơ người dùng</h1>
           </div>
@@ -79,9 +78,9 @@ export function UserProfile({ user, onLogout, onBackToMenu }: UserProfileProps) 
           <div className="flex items-center gap-6">
             <div className="relative">
               <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
+                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`} />
                 <AvatarFallback className="text-2xl bg-blue-100 text-blue-600">
-                  {user.name.charAt(0).toUpperCase()}
+                  {profileData.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-2 border-white rounded-full"></div>

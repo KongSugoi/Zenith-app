@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, ReactNode } from 'react'
+import { useState, useRef, ReactNode} from 'react'
 import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { Avatar, AvatarFallback } from './ui/avatar'
@@ -10,8 +10,6 @@ import {
   Mic, MicOff, Type, Send, LogOut, Settings, User 
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "./ui/dropdown-menu"
-import { SpeechRecognition } from '@capacitor-community/speech-recognition'
-import { TextToSpeech } from '@capacitor-community/text-to-speech'
 
 interface Message {
   isUser: boolean
@@ -39,6 +37,11 @@ interface AIChatProps {
 }
 
 export function AIChat({ user, onNavigate }: AIChatProps) {
+
+  const CHAT_API = import.meta.env.VITE_CHAT_URL;
+  const TRANSCRIBE_API = import.meta.env.VITE_TRANSCRIBE_URL;
+  const SYNTHESIZE_API = import.meta.env.VITE_SYNTHESIZE_URL;
+
   const currentTime = new Date()
   const [_messages, setMessages] = useState<Message[]>([
     {
@@ -53,74 +56,216 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
   const [inputText, setInputText] = useState('')
   const [showTextInput, setShowTextInput] = useState(false)
   const [isListening, setIsListening] = useState(false)
-  const [_isSpeaking, setIsSpeaking] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+
+  function audioBufferToWav(buffer: AudioBuffer, opt?: { float32?: boolean }) {
+    const numChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const format = opt && opt.float32 ? 3 : 1; // 3 = IEEE float, 1 = PCM
+    const bitDepth = format === 3 ? 32 : 16;
+
+    let result;
+    if (numChannels === 2) {
+      result = interleave(buffer.getChannelData(0), buffer.getChannelData(1));
+    } else {
+      result = buffer.getChannelData(0);
+    }
+
+    return encodeWAV(result, format, sampleRate, numChannels, bitDepth);
+  }
+
+  function interleave(left: Float32Array, right: Float32Array) {
+    const length = left.length + right.length;
+    const result = new Float32Array(length);
+
+    let index = 0;
+    let inputIndex = 0;
+
+    while (index < length) {
+      result[index++] = left[inputIndex];
+      result[index++] = right[inputIndex];
+      inputIndex++;
+    }
+    return result;
+  }
+
+  function encodeWAV(samples: Float32Array, format: number, sampleRate: number, numChannels: number, bitDepth: number) {
+    const bytesPerSample = bitDepth / 8;
+    const blockAlign = numChannels * bytesPerSample;
+
+    const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+    const view = new DataView(buffer);
+
+    /* RIFF identifier */
+    writeString(view, 0, 'RIFF');
+    /* file length */
+    view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+    /* RIFF type */
+    writeString(view, 8, 'WAVE');
+    /* format chunk identifier */
+    writeString(view, 12, 'fmt ');
+    /* format chunk length */
+    view.setUint32(16, 16, true);
+    /* sample format (raw) */
+    view.setUint16(20, format, true);
+    /* channel count */
+    view.setUint16(22, numChannels, true);
+    /* sample rate */
+    view.setUint32(24, sampleRate, true);
+    /* byte rate (sample rate * block align) */
+    view.setUint32(28, sampleRate * blockAlign, true);
+    /* block align (channel count * bytes per sample) */
+    view.setUint16(32, blockAlign, true);
+    /* bits per sample */
+    view.setUint16(34, bitDepth, true);
+    /* data chunk identifier */
+    writeString(view, 36, 'data');
+    /* data chunk length */
+    view.setUint32(40, samples.length * bytesPerSample, true);
+    
+    if (format === 1) { // PCM
+      floatTo16BitPCM(view, 44, samples);
+    } else {
+      writeFloat32(view, 44, samples);
+    }
+
+    return buffer;
+  }
+
+  function writeString(view: DataView, offset: number, string: string) {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  }
+
+  function floatTo16BitPCM(view: DataView, offset: number, input: Float32Array) {
+    for (let i = 0; i < input.length; i++, offset += 2) {
+      let s = Math.max(-1, Math.min(1, input[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+  }
+
+  function writeFloat32(view: DataView, offset: number, input: Float32Array) {
+    for (let i = 0; i < input.length; i++, offset += 4) {
+      view.setFloat32(offset, input[i], true);
+    }
+  }
+
+  const convertWebMtoWav = async (webmBlob: Blob) => {
+    const arrayBuffer = await webmBlob.arrayBuffer();
+    const audioBuffer = await new AudioContext().decodeAudioData(arrayBuffer);
+
+    const wavBuffer = audioBufferToWav(audioBuffer); // cần hàm encode WAV
+    return new Blob([wavBuffer], { type: 'audio/wav' });
+  };
 
   function getWelcomeMessage(): string {
     return `Cháu chào bác ạ! Cháu là một trợ lý AI, không có tên riêng đâu ạ. Bác có thể gọi cháu là "trợ lý" hoặc "bạn đồng hành" cũng được ạ.\n\nCháu ở đây để giúp đỡ bác mọi việc, từ trả lời câu hỏi, trò chuyện, cho đến hỗ trợ những công việc nhỏ nhặt khác. Nếu có gì cần cháu giúp, bác cứ nói nhé. Cháu luôn sẵn lòng ạ.`
   }
 
-  const startListening = async () => {
-    const perm = await SpeechRecognition.checkPermissions()
-    if (perm.speechRecognition !== 'granted') {
-      await SpeechRecognition.requestPermissions()
-    }
+  const transcribeAudio = async (audioBlob: Blob) => {
+    const formData = new FormData()
+    formData.append("file", audioBlob, "audio.wav")
 
-    await SpeechRecognition.removeAllListeners()
-
-    SpeechRecognition.addListener('partialResults', (data: any) => {
-      if (data.matches && data.matches.length > 0) {
-        setInputText(data.matches[0])
-        // If you want to treat the first match as final, you can trigger send here:
-        // setIsListening(false)
-        // setInputText('')
-        // handleSendMessage(data.matches[0])
-      }
-    })
-
-    // Remove the 'result' event listener as it's not supported by the plugin.
-
-    setIsListening(true)
-    await SpeechRecognition.start({
-      language: 'vi-VN',
-      maxResults: 1,
-      prompt: 'Hãy nói gì đó...',
-      partialResults: true,
-      popup: false
-    })
-  }
-
-  const stopListening = async () => {
-    await SpeechRecognition.stop()
-    setIsListening(false)
-  }
-
-  // ✅ Text to speech
-  const speakText = async (text: string) => {
-    if (!text) return
-    setIsSpeaking(true)
     try {
-      await TextToSpeech.speak({
-        text,
-        lang: 'vi-VN',
-        rate: 1.0,
-        pitch: 1.0,
-        volume: 1.0,
-        category: 'playback',
+      const res = await fetch(TRANSCRIBE_API, {   
+        method: "POST",
+        body: formData
       })
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! Status: ${res.status}`);
+      }
+
+      const data = await res.json()
+
+      console.log("Parsed response:", data);
+      addLog("Transcription result:" + data.text);
+
+      return data.text || ""
     } catch (err) {
-      console.error('TTS error:', err)
+      console.error("Transcribe error:", err)
+      return ""
     }
-    setIsSpeaking(false)
   }
 
-  // ✅ Call AI backend
+  const synthesizeSpeech = async (text: string) => {
+    try {
+      const res = await fetch(SYNTHESIZE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text,
+          voice: "sage",
+          format: "mp3"
+        })
+      })
+      const audioBlob = await res.blob()
+      const audioUrl = URL.createObjectURL(audioBlob)
+      const audio = new Audio(audioUrl)
+      audio.play()
+    } catch (err) {
+      console.error("Synthesize error:", err)
+    }
+  }
+
+  const startListening = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
+        const webmBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        const wavBlob = await convertWebMtoWav(webmBlob)
+        const text = await transcribeAudio(wavBlob)
+        if (text) {
+          setInputText(text)
+          await handleSendMessage(text)
+        }
+      }
+
+      mediaRecorderRef.current = mediaRecorder
+      mediaRecorder.start()
+      setIsListening(true)
+    } catch (err) {
+      console.error("Microphone error:", err)
+    }
+  }
+
+  const stopListening = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop()
+      setIsListening(false)
+    }
+  }
+
   const getAIResponse = async (prompt: string): Promise<ChatResponse> => {
     try {
-      const response = await fetch("/chat", {
+      addLog('Url: ' + CHAT_API);
+      const response = await fetch(CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            }
+          ]
+        })
       })
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
       return await response.json()
     } catch (error) {
       console.error('AI API error:', error)
@@ -159,7 +304,7 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
     }
 
     setMessages(prev => [...prev, AIMessage])
-    await speakText(AIResponse.reply)
+    await synthesizeSpeech(AIResponse.reply)
   }
 
   const getGreeting = () => "Xin chào"

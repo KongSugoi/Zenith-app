@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from './ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TextToSpeech } from '@capacitor-community/text-to-speech' 
 
 interface NotificationEvent {
   id: string
@@ -20,6 +19,9 @@ interface NotificationAlertProps {
 }
 
 export function NotificationAlert({ events, onConfirm }: NotificationAlertProps) {
+
+  const SYNTHESIZE_API = import.meta.env.VITE_SYNTHESIZE_URL;
+
   const [isPlaying, setIsPlaying] = useState(true)
   const audioContextRef = useRef<AudioContext | null>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -67,14 +69,21 @@ export function NotificationAlert({ events, onConfirm }: NotificationAlertProps)
   // ✅ Hàm đọc nội dung thông báo
   const speakNotification = async (text: string) => {
     try {
-      await TextToSpeech.speak({
-        text,
-        lang: 'vi-VN',
-        rate: 1.0,
-        pitch: 1.0,
-        volume: 1.0,
-        category: 'playback',
+      const res = await fetch(SYNTHESIZE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text,
+          voice: "sage",
+          format: "mp3"
+        })
       })
+      
+      const audioBlob = await res.blob()
+      const audioUrl = URL.createObjectURL(audioBlob)
+      const audio = new Audio(audioUrl)
+      audio.play()
+
     } catch (error) {
       console.error('TTS error:', error)
     }

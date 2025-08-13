@@ -24,7 +24,7 @@ export default defineConfig({
     cors: true,
     proxy: {
       '/chat': {
-        target: 'http://18.215.161.7:6000',
+        target: 'http://18.215.161.7:5314',
         changeOrigin: true
       },
       '/transcribe': {

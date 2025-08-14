@@ -180,9 +180,6 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
 
       const data = await res.json()
 
-      console.log("Parsed response:", data);
-      addLog("Transcription result:" + data.text);
-
       return data.text || ""
     } catch (err) {
       console.error("Transcribe error:", err)
@@ -249,7 +246,6 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
 
   const getAIResponse = async (prompt: string): Promise<ChatResponse> => {
     try {
-      addLog('Url: ' + CHAT_API);
       const response = await fetch(CHAT_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -291,9 +287,6 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
 
     const AIResponse = await getAIResponse(content)
 
-    // debug:
-    addLog(`📩 AI: ${JSON.stringify(AIResponse)}`);
-
     const AIMessage: Message = {
       id: (Date.now() + 1).toString(),
       type: 'ai',
@@ -310,13 +303,6 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
   const getGreeting = () => "Xin chào"
   const formatDate = (date: Date) => date.toLocaleDateString("vi-VN")
   const formatTime = (date: Date) => date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
-
-  // For debug:
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
-
-  const addLog = (msg: string) => {
-    setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-indigo-100 p-3 sm:p-4">
@@ -370,22 +356,6 @@ export function AIChat({ user, onNavigate }: AIChatProps) {
           <Button onClick={() => onNavigate("health-journal")} className="h-40 flex flex-col justify-center bg-white border-2 border-purple-400 text-purple-600">
             <BookOpen className="h-12 w-12" /> Nhật Ký
           </Button>
-        </div>
-
-        {/* Debug Panel */}
-        <div className="fixed bottom-0 left-0 right-0 bg-black text-green-400 text-xs p-2 max-h-40 overflow-y-auto">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-bold">Debug Console</span>
-            <button 
-              className="text-red-400 text-xs underline"
-              onClick={() => setDebugLogs([])}
-            >
-              Xóa log
-            </button>
-          </div>
-          {debugLogs.map((log, idx) => (
-            <div key={idx}>{log}</div>
-          ))}
         </div>
 
         {/* Voice/Text Input */}

@@ -8,7 +8,7 @@ import { Calendar } from './ui/calendar'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { CalendarDays, Plus, Pill, Activity, Stethoscope, Bell, Clock, TestTube } from 'lucide-react'
+import { CalendarDays, Plus, Pill, Activity, Stethoscope, Bell, Clock} from 'lucide-react'
 import { vi } from 'date-fns/locale'
 import { PageWrapper } from './PageWrapper'
 import { SeniorTimePicker } from './SeniorTimePicker'
@@ -100,24 +100,6 @@ export function SmartCalendar({
     }
   }
 
-  // Add quick test event function
-  const addQuickTestEvent = () => {
-    const now = new Date()
-    const testTime = new Date(now.getTime() + 10000) // 10 seconds from now
-    
-    const testEvent: CalendarEvent = {
-      id: `test-${Date.now()}`,
-      title: 'Test Nhắc Nhở',
-      description: 'Đây là sự kiện test để kiểm tra thông báo',
-      date: now,
-      time: testTime.toTimeString().slice(0, 5),
-      type: 'medication'
-    }
-
-    onAddEvent(testEvent)
-    toast.success(`🧪 Đã thêm test event - sẽ thông báo sau 10 giây`)
-  }
-
   const isEventDue = (event: CalendarEvent) => {
     const now = new Date()
     const eventDate = event.date.toDateString()
@@ -188,27 +170,6 @@ export function SmartCalendar({
                 <div>
                   <p className="text-sm text-muted-foreground">Sắp tới</p>
                   <p className="text-2xl font-medium">{getUpcomingEvents().length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <TestTube className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Test</p>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={addQuickTestEvent}
-                    className="mt-1 text-xs"
-                  >
-                    Thêm Test Event
-                  </Button>
                 </div>
               </div>
             </CardContent>

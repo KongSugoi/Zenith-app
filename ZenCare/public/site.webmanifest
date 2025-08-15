@@ -1,0 +1,30 @@
+{
+  "name": "Health App - Ứng dụng Sức Khỏe Người Cao Tuổi",
+  "short_name": "Health App",
+  "description": "Ứng dụng sức khỏe thông minh dành cho người cao tuổi với AI chatbot và theo dõi sức khỏe",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#030213",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["health", "medical", "productivity"],
+  "lang": "vi",
+  "dir": "ltr"
+}

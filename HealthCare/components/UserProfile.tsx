@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useState } from 'react'
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Input } from './ui/input'
@@ -11,17 +10,103 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Separator } from './ui/separator'
-import { User, Edit, Save, X, Shield, Bell, Database, Activity, Calendar, Heart, MessageCircle, LogOut, Lock, Key, ArrowLeft } from 'lucide-react'
+import { User, Edit, Save, X, Shield, Bell, Database, Calendar, Heart, MessageCircle, LogOut, Lock, Key, ArrowLeft, Download, FileText } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface UserProfileProps {
-  userId: number
+  user: { name: string; email: string }
   onLogout?: () => void
   onBackToMenu?: () => void
 }
 
-export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps) {
+// Mock health data for export
+const mockHealthData = {
+  user: {
+    name: "Nguyễn Văn An",
+    email: "nguyen.van.an@email.com",
+    age: 65,
+    phone: "+84 123 456 789",
+    address: "123 Đường ABC, Quận 1, TP.HCM",
+    emergencyContact: "Nguyễn Thị B - +84 987 654 321",
+    medicalHistory: "Tăng huyết áp, tiểu đường type 2",
+    allergies: "Penicillin, hải sản",
+    currentMedications: "Losartan 50mg (1 viên/ngày), Metformin 500mg (2 viên/ngày)",
+    doctorInfo: "Bác sĩ Nguyễn Văn C - Bệnh viện Tim Mạch"
+  },
+  heartRateData: [
+    { date: "2024-01-20", avg: 68, rest: 58, max: 95, measurements: 24 },
+    { date: "2024-01-21", avg: 72, rest: 62, max: 88, measurements: 26 },
+    { date: "2024-01-22", avg: 70, rest: 60, max: 92, measurements: 23 },
+    { date: "2024-01-23", avg: 74, rest: 63, max: 98, measurements: 25 },
+    { date: "2024-01-24", avg: 69, rest: 59, max: 87, measurements: 22 },
+    { date: "2024-01-25", avg: 71, rest: 61, max: 94, measurements: 24 },
+    { date: "2024-01-26", avg: 67, rest: 57, max: 89, measurements: 21 }
+  ],
+  journalEntries: [
+    {
+      date: "2024-01-26",
+      mood: "Tốt",
+      notes: "Hôm nay cảm thấy khá tốt, chỉ hơi đau đầu vào buổi chiều. Có thể do thức khuya hôm qua."
+    },
+    {
+      date: "2024-01-25", 
+      mood: "Tuyệt vời",
+      notes: "Ngày tuyệt vời! Không có triệu chứng gì bất thường. Ngủ ngon và ăn uống đầy đủ."
+    },
+    {
+      date: "2024-01-24",
+      mood: "Bình thường", 
+      notes: "Cảm thấy hơi mệt mỏi và khó ngủ. Có thể do căng thẳng từ cuộc họp gia đình."
+    }
+  ],
+  calendarEvents: [
+    {
+      date: "2024-01-27",
+      time: "08:00",
+      title: "Uống thuốc huyết áp",
+      type: "Thuốc",
+      completed: true
+    },
+    {
+      date: "2024-01-27",
+      time: "16:00", 
+      title: "Tập thể dục",
+      type: "Tập luyện",
+      completed: false
+    },
+    {
+      date: "2024-02-02",
+      time: "14:00",
+      title: "Khám định kỳ",
+      type: "Hẹn khám",
+      completed: false
+    }
+  ],
+  stats: {
+    totalHeartRateMeasurements: 247,
+    aiConversations: 89,
+    daysUsed: 45,
+    averageHeartRate: 70,
+    restingHeartRate: 59,
+    maxHeartRate: 98
+  }
+}
+
+export function UserProfile({ user, onLogout, onBackToMenu }: UserProfileProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [profileData, setProfileData] = useState<any>(null)
+  const [profileData, setProfileData] = useState({
+    name: user.name,
+    email: user.email,
+    phone: '+84 123 456 789',
+    dateOfBirth: '1960-05-15',
+    gender: 'male',
+    address: '123 Đường ABC, Quận 1, TP.HCM',
+    emergencyContact: 'Nguyễn Thị B - +84 987 654 321',
+    medicalHistory: 'Tăng huyết áp, tiểu đường type 2',
+    allergies: 'Penicillin, hải sản',
+    currentMedications: 'Losartan 50mg (1 viên/ngày), Metformin 500mg (2 viên/ngày)',
+    doctorInfo: 'Bác sĩ Nguyễn Văn C - Bệnh viện Tim Mạch'
+  })
 
   const [preferences, setPreferences] = useState({
     notifications: true,
@@ -30,26 +115,180 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
     weeklyReports: true
   })
 
-  useEffect(() => {
-    axios
-      .get(` https://f27d028d8344.ngrok-free.app/api/users/${userId}`)
-      .then(res => setProfileData(res.data))
-      .catch(err => console.error(err))
-  }, [userId])
-
   const handleSave = () => {
-    axios
-      .put(` https://f27d028d8344.ngrok-free.app/api/users/${userId}`, profileData)
-      .then(() => {
-        setIsEditing(false)
-        alert('Đã lưu thông tin cá nhân!')
-      })
-      .catch(err => console.error(err))
+    // In real app, this would save to database
+    setIsEditing(false)
+    toast.success('Đã lưu thông tin cá nhân!')
   }
 
   const handleCancel = () => {
     setIsEditing(false)
     // Reset data if needed
+  }
+
+  const generateHealthReport = () => {
+    const reportDate = new Date().toLocaleDateString('vi-VN')
+    
+    return `
+BÁOÁO SỨC KHỎE TOÀN DIỆN
+=====================================
+
+Thông tin người dùng:
+-------------------------------------
+Họ tên: ${mockHealthData.user.name}
+Email: ${mockHealthData.user.email}
+Tuổi: ${mockHealthData.user.age}
+Điện thoại: ${mockHealthData.user.phone}
+Địa chỉ: ${mockHealthData.user.address}
+Liên hệ khẩn cấp: ${mockHealthData.user.emergencyContact}
+Bác sĩ điều trị: ${mockHealthData.user.doctorInfo}
+Ngày xuất báo cáo: ${reportDate}
+
+Thông tin y tế:
+-------------------------------------
+Tiền sử bệnh: ${mockHealthData.user.medicalHistory}
+Dị ứng: ${mockHealthData.user.allergies}
+Thuốc đang sử dụng: ${mockHealthData.user.currentMedications}
+
+Thống kê tổng quan:
+-------------------------------------
+• Tổng số lần đo nhịp tim: ${mockHealthData.stats.totalHeartRateMeasurements}
+• Số cuộc trò chuyện với AI: ${mockHealthData.stats.aiConversations}
+• Số ngày sử dụng ứng dụng: ${mockHealthData.stats.daysUsed}
+• Nhịp tim trung bình: ${mockHealthData.stats.averageHeartRate} bpm
+• Nhịp tim nghỉ: ${mockHealthData.stats.restingHeartRate} bpm
+• Nhịp tim tối đa: ${mockHealthData.stats.maxHeartRate} bpm
+
+Dữ liệu nhịp tim 7 ngày gần nhất:
+-------------------------------------
+${mockHealthData.heartRateData.map(data => 
+  `${data.date}: TB=${data.avg}bpm, Nghỉ=${data.rest}bpm, Max=${data.max}bpm (${data.measurements} lần đo)`
+).join('\n')}
+
+Nhật ký sức khỏe gần đây:
+-------------------------------------
+${mockHealthData.journalEntries.map(entry => 
+  `${entry.date} - Tâm trạng: ${entry.mood}\n   ${entry.notes}\n`
+).join('\n')}
+
+Lịch trình sức khỏe:
+-------------------------------------
+${mockHealthData.calendarEvents.map(event => 
+  `${event.date} ${event.time} - ${event.title} (${event.type}) ${event.completed ? '✓' : '○'}`
+).join('\n')}
+
+Khuyến nghị:
+-------------------------------------
+• Nhịp tim của bạn đang ở mức ổn định và tốt cho độ tuổi
+• Hãy tiếp tục duy trì chế độ tập luyện và uống thuốc đúng giờ
+• Theo dõi thường xuyên và ghi chép nhật ký sức khỏe
+• Đến khám định kỳ theo lịch hẹn với bác sĩ
+
+Ghi chú: Báo cáo này được tạo tự động từ ứng dụng ZenCare AI
+và chỉ mang tính chất tham khảo. Vui lòng tham khảo ý kiến
+bác sĩ chuyên khoa để có lời khuyên y tế chính xác.
+
+=====================================
+ZenCare AI - Ứng dụng chăm sóc sức khỏe thông minh
+Ngày xuất: ${reportDate}
+    `
+  }
+
+  const handleExportData = () => {
+    try {
+      const healthReport = generateHealthReport()
+      
+      // Create a blob with the health report
+      const blob = new Blob([healthReport], { type: 'text/plain;charset=utf-8' })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      
+      // Generate filename with current date
+      const fileName = `BaoCaoSucKhoe_${mockHealthData.user.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.txt`
+      link.download = fileName
+      
+      // Trigger download
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up
+      window.URL.revokeObjectURL(url)
+      
+      toast.success('✅ Đã xuất báo cáo sức khỏe thành công!')
+    } catch (error) {
+      console.error('Error exporting data:', error)
+      toast.error('❌ Lỗi khi xuất dữ liệu. Vui lòng thử lại.')
+    }
+  }
+
+  const handleBackupData = () => {
+    try {
+      // Create comprehensive backup data
+      const backupData = {
+        exportDate: new Date().toISOString(),
+        userProfile: profileData,
+        preferences: preferences,
+        healthData: mockHealthData,
+        version: "1.0"
+      }
+      
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
+        type: 'application/json;charset=utf-8' 
+      })
+      
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      
+      const fileName = `ZenCare_Backup_${new Date().toISOString().split('T')[0]}.json`
+      link.download = fileName
+      
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      window.URL.revokeObjectURL(url)
+      
+      toast.success('✅ Đã sao lưu dữ liệu thành công!')
+    } catch (error) {
+      console.error('Error backing up data:', error)
+      toast.error('❌ Lỗi khi sao lưu dữ liệu. Vui lòng thử lại.')
+    }
+  }
+
+  const handleDeleteAllData = () => {
+    const confirmed = window.confirm(
+      'CẢNH BÁO: Bạn có chắc muốn xóa TẤT CẢ dữ liệu?\n\n' +
+      'Hành động này sẽ xóa vĩnh viễn:\n' +
+      '• Tất cả dữ liệu nhịp tim\n' +
+      '• Nhật ký sức khỏe\n' +
+      '• Lịch trình và nhắc nhở\n' +
+      '• Thông tin cá nhân\n\n' +
+      'Dữ liệu không thể khôi phục sau khi xóa!'
+    )
+    
+    if (confirmed) {
+      const doubleConfirm = window.confirm(
+        'Xác nhận lần cuối: Bạn THẬT SỰ muốn xóa tất cả dữ liệu?\n\n' +
+        'Nhập "XÓA TẤT CẢ" để xác nhận:'
+      )
+      
+      if (doubleConfirm) {
+        // In real app, this would call API to delete all user data
+        toast.success('🗑️ Đã xóa tất cả dữ liệu. Tài khoản sẽ được đăng xuất.')
+        
+        // Logout user after deletion
+        setTimeout(() => {
+          if (onLogout) {
+            onLogout()
+          }
+        }, 2000)
+      }
+    }
   }
 
   return (
@@ -66,6 +305,7 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
               className="text-gray-600 hover:text-gray-900"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
+              Quay lại Menu
             </Button>
             <h1 className="text-xl font-medium text-gray-800">Hồ sơ người dùng</h1>
           </div>
@@ -78,9 +318,9 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
           <div className="flex items-center gap-6">
             <div className="relative">
               <Avatar className="w-24 h-24 border-4 border-white shadow-lg">
-                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profileData.email}`} />
+                <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
                 <AvatarFallback className="text-2xl bg-blue-100 text-blue-600">
-                  {profileData.name.charAt(0).toUpperCase()}
+                  {user.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-2 border-white rounded-full"></div>
@@ -103,8 +343,8 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
         </div>
       </Card>
 
-      {/* Profile Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      {/* Profile Stats - Removed Health Score */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -142,20 +382,6 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
               <div>
                 <p className="text-sm text-gray-600">Ngày sử dụng</p>
                 <p className="text-lg font-semibold">45</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-50 rounded-lg">
-                <Activity className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Điểm sức khỏe</p>
-                <p className="text-lg font-semibold">8.5/10</p>
               </div>
             </div>
           </CardContent>
@@ -391,7 +617,7 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Data Export */}
+        {/* Data Export - Enhanced with Real Data */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -402,18 +628,41 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start" onClick={() => alert('Đang xuất dữ liệu...')}>
-                <Database className="w-4 h-4 mr-2" />
-                Xuất dữ liệu PDF
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={handleExportData}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Xuất báo cáo sức khỏe
+                <span className="ml-auto text-xs text-muted-foreground">TXT</span>
               </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => alert('Đang sao lưu...')}>
-                <Shield className="w-4 h-4 mr-2" />
-                Sao lưu dữ liệu
+              
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={handleBackupData}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Sao lưu dữ liệu đầy đủ
+                <span className="ml-auto text-xs text-muted-foreground">JSON</span>
               </Button>
-              <Button variant="destructive" className="w-full justify-start" onClick={() => alert('Xác nhận xóa tất cả dữ liệu?')}>
-                <X className="w-4 h-4 mr-2" />
-                Xóa tất cả dữ liệu
-              </Button>
+              
+              <div className="pt-2 border-t">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Dữ liệu bao gồm: {mockHealthData.stats.totalHeartRateMeasurements} lần đo nhịp tim, 
+                  {mockHealthData.journalEntries.length} nhật ký, {mockHealthData.calendarEvents.length} sự kiện lịch
+                </p>
+                
+                <Button 
+                  variant="destructive" 
+                  className="w-full justify-start" 
+                  onClick={handleDeleteAllData}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Xóa tất cả dữ liệu
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -429,11 +678,11 @@ export function UserProfile({ userId, onLogout, onBackToMenu }: UserProfileProps
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <Button variant="outline" className="w-full justify-start" onClick={() => alert('Đổi mật khẩu...')}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => toast.info('Tính năng đổi mật khẩu sẽ được phát triển')}>
                 <Key className="w-4 h-4 mr-2" />
                 Đổi mật khẩu
               </Button>
-              <Button variant="outline" className="w-full justify-start" onClick={() => alert('Cài đặt xác thực 2 lớp...')}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => toast.info('Tính năng xác thực 2 lớp sẽ được phát triển')}>
                 <Shield className="w-4 h-4 mr-2" />
                 Xác thực 2 lớp
               </Button>

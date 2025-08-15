@@ -13,8 +13,17 @@ import { vi } from 'date-fns/locale'
 import { PageWrapper } from './PageWrapper'
 import { SeniorTimePicker } from './SeniorTimePicker'
 import { toast } from 'sonner'
-import { CalendarEvent } from './NotificationManager'
 
+interface CalendarEvent {
+  id: string
+  title: string
+  description: string
+  date: Date
+  time: string
+  type: 'medication' | 'appointment' | 'exercise' | 'other'
+  completed?: boolean
+  snoozedUntil?: Date
+}
 interface SmartCalendarProps {
   events: CalendarEvent[]
   onAddEvent: (event: CalendarEvent) => void

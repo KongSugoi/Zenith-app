@@ -1,36 +1,73 @@
 'use client'
 
 import { useState } from 'react'
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Progress } from './ui/progress'
-import { Bluetooth, Plus, TrendingDown, TrendingUp, Heart, Droplet, Thermometer } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from 'recharts'
+import { Alert, AlertDescription } from './ui/alert'
+import { Bluetooth, Plus, TrendingDown, TrendingUp, Heart, Droplet, Thermometer, FileText, Download, AlertTriangle, CheckCircle } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { PageWrapper } from './PageWrapper'
+import { toast } from 'sonner'
+
+interface HeartRateReading {
+  id: string;
+  timestamp: Date;
+  rate: number;
+  source: 'manual' | 'device' | 'auto';
+}
+
+interface HealthAlert {
+  id: string;
+  type: 'heart_rate_high' | 'heart_rate_low' | 'calendar_event';
+  title: string;
+  description: string;
+  timestamp: Date;
+  severity: 'low' | 'medium' | 'high';
+  acknowledged?: boolean;
+}
 
 interface HealthDataProps {
+  heartRateReadings: HeartRateReading[];
+  onAddHeartRateReading: (reading: Omit<HeartRateReading, 'id'>) => void;
+  healthAlerts: HealthAlert[];
+  onAcknowledgeAlert: (alertId: string) => void;
   onBackToMenu?: () => void;
 }
 
-export function HealthData({ onBackToMenu }: HealthDataProps) {
-  const [connectedDevices] = useState([
+// Import jsPDF dynamically to avoid SSR issues
+const importJsPDF = async () => {
+  const jsPDF = (await import('jspdf')).default;
+  return jsPDF;
+};
+
+export function HealthData({ 
+  heartRateReadings, 
+  onAddHeartRateReading,
+  healthAlerts,
+  onAcknowledgeAlert,
+  onBackToMenu 
+}: HealthDataProps) {
+  const [connectedDevices, _setConnectedDevices] = useState([
     { id: 'heart-monitor', name: 'Đồng hồ thông minh Samsung', status: 'connected', lastSync: '5 phút trước' },
     { id: 'fitness-band', name: 'Vòng đeo tay Xiaomi', status: 'connected', lastSync: '10 phút trước' },
   ])
 
-  // Heart Rate Data - 7 days
-  const heartRateData = [
-    { date: '20/1', avg: 68, rest: 58, max: 95 },
-    { date: '21/1', avg: 72, rest: 62, max: 88 },
-    { date: '22/1', avg: 70, rest: 60, max: 92 },
-    { date: '23/1', avg: 74, rest: 63, max: 98 },
-    { date: '24/1', avg: 69, rest: 59, max: 87 },
-    { date: '25/1', avg: 71, rest: 61, max: 94 },
-    { date: '26/1', avg: 67, rest: 57, max: 89 },
-  ]
+  // Process heart rate data for charts
+  const getHeartRateData = () => {
+    const sortedReadings = [...heartRateReadings].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const last7Days = sortedReadings.slice(-7);
+    
+    return last7Days.map((reading, _index) => ({
+      date: reading.timestamp.toLocaleDateString('vi-VN').slice(0, 5),
+      rate: reading.rate,
+      time: reading.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    }));
+  };
 
-  // Daily Heart Rate Pattern
+  // Get daily heart rate pattern (mock data for demo)
   const dailyHeartRateData = [
     { time: '00:00', rate: 65 },
     { time: '04:00', rate: 58 },
@@ -39,35 +76,290 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
     { time: '16:00', rate: 85 },
     { time: '20:00', rate: 74 },
     { time: '24:00', rate: 68 },
-  ]
+  ];
 
-  // Current health metrics
-  const currentHeartRate = 72
-  const avgHeartRate = 70
-  const restingHeartRate = 59
-  const maxHeartRate = 98
-  const currentTemp = 36.5
-  const currentO2 = 98
+  // Calculate health metrics
+  const currentHeartRate = heartRateReadings.length > 0 
+    ? heartRateReadings.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0].rate 
+    : 72;
+  
+  const avgHeartRate = heartRateReadings.length > 0 
+    ? Math.round(heartRateReadings.reduce((sum, reading) => sum + reading.rate, 0) / heartRateReadings.length)
+    : 70;
+  
+  const restingHeartRate = Math.min(...heartRateReadings.map(r => r.rate), 59);
+  const maxHeartRate = Math.max(...heartRateReadings.map(r => r.rate), 98);
+  const currentTemp = 36.5;
+  const currentO2 = 98;
 
   const getHeartRateStatus = (rate: number) => {
     if (rate < 60) return { status: 'Chậm', color: 'text-blue-600', bgColor: 'bg-blue-50' }
     if (rate > 100) return { status: 'Nhanh', color: 'text-red-600', bgColor: 'bg-red-50' }
     return { status: 'Bình thường', color: 'text-green-600', bgColor: 'bg-green-50' }
-  }
+  };
 
   const handleConnectDevice = () => {
-    alert('Đang tìm kiếm thiết bị theo dõi nhịp tim gần đây...')
-  }
+    toast.info('🔍 Đang tìm kiếm thiết bị theo dõi nhịp tim...');
+  };
 
   const handleManualEntry = () => {
-    alert('Tính năng nhập thủ công đang được phát triển...')
-  }
+    const heartRate = prompt('Nhập nhịp tim hiện tại (bpm):');
+    if (heartRate) {
+      const rate = parseInt(heartRate);
+      if (rate >= 30 && rate <= 200) {
+        onAddHeartRateReading({
+          timestamp: new Date(),
+          rate: rate,
+          source: 'manual'
+        });
+      } else {
+        toast.error('❌ Nhịp tim không hợp lệ. Vui lòng nhập từ 30-200 bpm.');
+      }
+    }
+  };
 
-  const heartRateStatus = getHeartRateStatus(currentHeartRate)
+  // Generate comprehensive health report data
+  const generateHealthReportData = () => {
+    const reportDate = new Date().toLocaleDateString('vi-VN');
+    const userName = "Nguyen Van An"; // Mock user name - using ASCII for better PDF compatibility
+    
+    return {
+      user: {
+        name: userName,
+        email: "nguyen.van.an@email.com",
+        age: 65,
+        reportDate: reportDate
+      },
+      heartRateStats: {
+        current: currentHeartRate,
+        average: avgHeartRate,
+        resting: restingHeartRate,
+        maximum: maxHeartRate,
+        totalReadings: heartRateReadings.length,
+        normalReadings: heartRateReadings.filter(r => r.rate >= 60 && r.rate <= 100).length,
+        abnormalReadings: heartRateReadings.filter(r => r.rate < 60 || r.rate > 100).length
+      },
+      healthAlerts: {
+        total: healthAlerts.length,
+        unacknowledged: healthAlerts.filter(a => !a.acknowledged).length,
+        highSeverity: healthAlerts.filter(a => a.severity === 'high').length,
+        recent: healthAlerts.slice(-5)
+      },
+      recentReadings: heartRateReadings.slice(-15) // More readings for comprehensive report
+    };
+  };
+
+  // Export health data as PDF with improved Vietnamese support
+  const handleExportPDF = async () => {
+    try {
+      const jsPDF = await importJsPDF();
+      const doc = new jsPDF();
+      const data = generateHealthReportData();
+
+      doc.setFont('Times New Roman', 'normal');
+
+      let yPos = 30;
+      const leftMargin = 20;
+      const pageHeight = 280;
+      
+      // Helper function to check if new page is needed
+      const checkPageBreak = (height: number = 10) => {
+        if (yPos + height > pageHeight) {
+          doc.addPage();
+          yPos = 20;
+          return true;
+        }
+        return false;
+      };
+      
+      // Helper function to add text with automatic wrapping
+      const addText = (text: string, fontSize: number = 12, fontStyle: string = 'normal') => {
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', fontStyle);
+        
+        // Simple text wrapping for long lines
+        const maxWidth = 170;
+        const lines = doc.splitTextToSize(text, maxWidth);
+        
+        for (let i = 0; i < lines.length; i++) {
+          checkPageBreak(8);
+          doc.text(lines[i], leftMargin, yPos);
+          yPos += 8;
+        }
+        yPos += 2; // Extra spacing
+      };
+
+      // Title
+      addText('HEALTH REPORT', 18, 'bold');
+      yPos += 5;
+
+      // Date and user info section
+      addText('USER INFORMATION', 14, 'bold');
+      addText(`Report Date: ${data.user.reportDate}`);
+      addText(`User Name: ${data.user.name}`);
+      addText(`Email: ${data.user.email}`);
+      addText(`Age: ${data.user.age}`);
+      yPos += 10;
+
+      // Heart Rate Statistics
+      checkPageBreak(50);
+      addText('HEART RATE STATISTICS', 14, 'bold');
+      addText(`Current heart rate: ${data.heartRateStats.current} bpm`);
+      addText(`Average heart rate: ${data.heartRateStats.average} bpm`);
+      addText(`Resting heart rate: ${data.heartRateStats.resting} bpm`);
+      addText(`Maximum heart rate: ${data.heartRateStats.maximum} bpm`);
+      addText(`Total measurements: ${data.heartRateStats.totalReadings}`);
+      addText(`Normal results (60-100 bpm): ${data.heartRateStats.normalReadings}`);
+      addText(`Abnormal results: ${data.heartRateStats.abnormalReadings}`);
+      yPos += 10;
+
+      // Recent Readings
+      checkPageBreak(40);
+      addText('RECENT MEASUREMENTS', 14, 'bold');
+
+      if (data.recentReadings.length > 0) {
+        data.recentReadings.forEach((reading, index) => {
+          checkPageBreak(8);
+          const timeStr = reading.timestamp.toLocaleString('en-US');
+          const sourceStr = reading.source === 'manual' ? 'Manual' : 
+                            reading.source === 'device' ? 'Device' : 'Automatic';
+          const statusStr = reading.rate < 60 ? ' (LOW)' : 
+                            reading.rate > 100 ? ' (HIGH)' : ' (NORMAL)';
+          
+          addText(`${index + 1}. ${timeStr}: ${reading.rate} bpm (${sourceStr})${statusStr}`, 10);
+        });
+      } else {
+        addText('No heart rate data available.', 10);
+      }
+      yPos += 10;
+
+      // Footer
+      checkPageBreak(30);
+      doc.setFontSize(8);
+      doc.text('This report was automatically generated by the ZenCare AI application', leftMargin, yPos);
+      doc.text('and is for reference purposes only. Please consult a', leftMargin, yPos + 8);
+      doc.text('specialist physician for accurate medical advice.', leftMargin, yPos + 16);
+      yPos += 20;
+
+      doc.text(`ZenCare AI - Intelligent Health Care Application`, leftMargin, yPos);
+      doc.text(`Report Date: ${data.user.reportDate}`, leftMargin, yPos + 8);
+
+      
+      // Generate filename with current date
+      const fileName = `BaoCaoSucKhoe_${data.user.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const pdfBase64 = doc.output('datauristring');
+      // Save the PDF
+      // doc.save(fileName);
+
+      try {
+        await Filesystem.writeFile({
+          path: fileName,
+          data: pdfBase64,
+          directory: Directory.Documents
+        });
+        toast.success(`✅ Đã lưu báo cáo PDF vào thư mục Documents: ${fileName}`);
+      } catch (err) {
+        console.error('Error saving PDF to Documents:', err);
+        toast.error('❌ Lỗi khi lưu PDF vào thư mục Documents.');
+      }
+      
+      toast.success('✅ Đã xuất báo cáo sức khỏe PDF thành công!');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('❌ Lỗi khi xuất PDF. Vui lòng thử lại.');
+    }
+  };
+
+  // Export raw data as JSON
+  const handleExportData = () => {
+    try {
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        heartRateReadings: heartRateReadings,
+        healthAlerts: healthAlerts,
+        summary: generateHealthReportData(),
+        version: "2.0"
+      };
+      
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json;charset=utf-8' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const fileName = `DuLieuSucKhoe_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = fileName;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('✅ Đã xuất dữ liệu thành công!');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast.error('❌ Lỗi khi xuất dữ liệu. Vui lòng thử lại.');
+    }
+  };
+
+  const heartRateStatus = getHeartRateStatus(currentHeartRate);
+  const chartData = getHeartRateData();
 
   return (
     <PageWrapper title="Dữ Liệu Sức Khỏe" onBackToMenu={onBackToMenu}>
       <div className="space-y-6">
+        
+        {/* Health Alerts */}
+        {healthAlerts.filter(alert => !alert.acknowledged).length > 0 && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-800">
+                <AlertTriangle className="w-5 h-5" />
+                Cảnh báo sức khỏe ({healthAlerts.filter(alert => !alert.acknowledged).length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {healthAlerts
+                  .filter(alert => !alert.acknowledged)
+                  .slice(0, 3)
+                  .map((alert) => (
+                    <Alert key={alert.id} className={`border-l-4 ${
+                      alert.severity === 'high' ? 'border-l-red-500 bg-red-50' :
+                      alert.severity === 'medium' ? 'border-l-orange-500 bg-orange-50' :
+                      'border-l-yellow-500 bg-yellow-50'
+                    }`}>
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium">{alert.title}</p>
+                            <p className="text-sm mt-1">{alert.description}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {alert.timestamp.toLocaleString('vi-VN')}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onAcknowledgeAlert(alert.id)}
+                            className="ml-4"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Xác nhận
+                          </Button>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Device Status */}
         <Card>
           <CardHeader>
@@ -167,7 +459,7 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
                   </div>
                   <div className="flex items-center gap-1 mt-1">
                     <TrendingUp className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs text-orange-600">Hôm qua</span>
+                    <span className="text-xs text-orange-600">Gần đây</span>
                   </div>
                 </div>
               </div>
@@ -186,7 +478,7 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
                     <p className="text-lg font-medium text-purple-600">{avgHeartRate}</p>
                     <span className="text-xs text-muted-foreground">bpm</span>
                   </div>
-                  <span className="text-xs text-gray-600">7 ngày qua</span>
+                  <span className="text-xs text-gray-600">{heartRateReadings.length} lần đo</span>
                 </div>
               </div>
             </CardContent>
@@ -195,46 +487,33 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
 
         {/* Charts */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Weekly Heart Rate Trends */}
+          {/* Heart Rate Trends */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Heart className="w-5 h-5 text-red-600" />
-                Xu hướng nhịp tim tuần này
+                Xu hướng nhịp tim gần đây
               </CardTitle>
-              <CardDescription>Theo dõi nhịp tim trung bình, nghỉ và tối đa theo ngày</CardDescription>
+              <CardDescription>Theo dõi nhịp tim từ {heartRateReadings.length} lần đo</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={heartRateData}>
+                  <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
-                    <YAxis domain={[50, 110]} />
+                    <YAxis domain={[40, 120]} />
                     <Tooltip 
-                      formatter={(value, name) => [`${value} bpm`, name === 'avg' ? 'Trung bình' : name === 'rest' ? 'Nghỉ' : 'Tối đa']}
+                      formatter={(value) => [`${value} bpm`, 'Nhịp tim']}
                       labelFormatter={(label) => `Ngày: ${label}`}
                     />
                     <Line 
                       type="monotone" 
-                      dataKey="avg" 
+                      dataKey="rate" 
                       stroke="#ef4444" 
                       strokeWidth={2}
-                      name="Trung bình"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="rest" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      name="Nghỉ"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="max" 
-                      stroke="#f59e0b" 
-                      strokeWidth={2}
-                      name="Tối đa"
+                      dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
+                      name="Nhịp tim"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -242,16 +521,16 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
               
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">TB tuần</p>
-                  <p className="text-xl text-red-600">70 bpm</p>
+                  <p className="text-sm text-muted-foreground">Hiện tại</p>
+                  <p className="text-xl text-red-600">{currentHeartRate} bpm</p>
                 </div>
                 <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Nghỉ TB</p>
-                  <p className="text-xl text-blue-600">60 bpm</p>
+                  <p className="text-sm text-muted-foreground">Trung bình</p>
+                  <p className="text-xl text-blue-600">{avgHeartRate} bpm</p>
                 </div>
                 <div className="text-center p-3 bg-orange-50 rounded-lg">
                   <p className="text-sm text-muted-foreground">Cao nhất</p>
-                  <p className="text-xl text-orange-600">98 bpm</p>
+                  <p className="text-xl text-orange-600">{maxHeartRate} bpm</p>
                 </div>
               </div>
             </CardContent>
@@ -264,7 +543,7 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
                 <Heart className="w-5 h-5 text-red-600" />
                 Nhịp tim trong ngày
               </CardTitle>
-              <CardDescription>Theo dõi nhịp tim theo từng giờ hôm nay</CardDescription>
+              <CardDescription>Mẫu nhịp tim theo giờ (dữ liệu mẫu)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64 mb-4">
@@ -322,6 +601,65 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
             </CardContent>
           </Card>
         </div>
+
+        {/* Data Export Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-purple-600" />
+              Quản lý dữ liệu sức khỏe
+            </CardTitle>
+            <CardDescription>Xuất báo cáo và sao lưu dữ liệu với định dạng tiếng Việt</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Button 
+                variant="outline" 
+                className="h-16 flex flex-col items-center justify-center gap-2" 
+                onClick={handleExportPDF}
+              >
+                <FileText className="w-6 h-6 text-red-600" />
+                <div className="text-center">
+                  <div className="font-medium">Xuất báo cáo PDF</div>
+                  <div className="text-xs text-muted-foreground">Báo cáo sức khỏe định dạng tiếng Việt</div>
+                </div>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                className="h-16 flex flex-col items-center justify-center gap-2" 
+                onClick={handleExportData}
+              >
+                <Download className="w-6 h-6 text-blue-600" />
+                <div className="text-center">
+                  <div className="font-medium">Sao lưu dữ liệu</div>
+                  <div className="text-xs text-muted-foreground">Tệp JSON với dữ liệu chi tiết</div>
+                </div>
+              </Button>
+            </div>
+            
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="font-medium text-blue-600">{heartRateReadings.length}</div>
+                  <div className="text-muted-foreground">Lần đo tim</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium text-green-600">{healthAlerts.filter(a => a.acknowledged).length}</div>
+                  <div className="text-muted-foreground">Cảnh báo đã xử lý</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium text-orange-600">{healthAlerts.filter(a => !a.acknowledged).length}</div>
+                  <div className="text-muted-foreground">Cảnh báo chưa xử lý</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-medium text-purple-600">{heartRateReadings.filter(r => r.source === 'manual').length}</div>
+                  <div className="text-muted-foreground">Nhập thủ công</div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Additional Health Metrics */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -383,8 +721,8 @@ export function HealthData({ onBackToMenu }: HealthDataProps) {
                   <div>
                     <p className="text-sm text-blue-800 font-medium">Xu hướng ổn định tích cực</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Nhịp tim của bạn có xu hướng ổn định trong tuần qua với biến động tự nhiên 
-                      theo hoạt động hàng ngày. Hãy duy trì lối sống hiện tại.
+                      Nhịp tim của bạn có xu hướng ổn định với {heartRateReadings.length} lần đo. 
+                      Hãy duy trì lối sống hiện tại và theo dõi thường xuyên.
                     </p>
                   </div>
                 </div>

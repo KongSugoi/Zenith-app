@@ -8,7 +8,7 @@ import { SmartCalendar } from "./components/SmartCalendar";
 import { HealthData } from "./components/HealthData";
 import { HealthJournal } from "./components/HealthJournal";
 import { HeartRateMonitor } from "./components/HeartRateMonitor";
-import { CalendarEvent, NotificationManager } from "./components/NotificationManager";
+import { NotificationManager } from "./components/NotificationManager";
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 // import { Preferences } from "@capacitor/preferences"; 
@@ -19,6 +19,33 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+}
+interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  date: Date;
+  time: string;
+  type: 'medication' | 'appointment' | 'exercise' | 'other';
+  completed?: boolean;
+  snoozedUntil?: Date;
+}
+
+interface HeartRateReading {
+  id: string;
+  timestamp: Date;
+  rate: number;
+  source: 'manual' | 'device' | 'auto';
+}
+
+interface HealthAlert {
+  id: string;
+  type: 'heart_rate_high' | 'heart_rate_low' | 'calendar_event';
+  title: string;
+  description: string;
+  timestamp: Date;
+  severity: 'low' | 'medium' | 'high';
+  acknowledged?: boolean;
 }
 
 type Page = 'ai-chat' | 'profile' | 'calendar' | 'health-data' | 'health-journal' | 'heart-rate' | 'settings';
@@ -70,6 +97,34 @@ export default function App() {
       }
     ];
   });
+
+  const [heartRateReadings, setHeartRateReadings] = useState<HeartRateReading[]>(() => {
+    // Initialize with some sample readings
+    const now = new Date();
+    return [
+      {
+        id: 'hr-1',
+        timestamp: new Date(now.getTime() - 30 * 60 * 1000), // 30 min ago
+        rate: 72,
+        source: 'device'
+      },
+      {
+        id: 'hr-2', 
+        timestamp: new Date(now.getTime() - 60 * 60 * 1000), // 1 hour ago
+        rate: 68,
+        source: 'device'
+      },
+      {
+        id: 'hr-3',
+        timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000), // 2 hours ago
+        rate: 75,
+        source: 'device'
+      }
+    ];
+  });
+
+  // Health alerts state
+  const [healthAlerts, setHealthAlerts] = useState<HealthAlert[]>([]);
 
   const handleLogin = (email: string, password: string) => {
     // Mock authentication - in real app, this would call an API
@@ -124,13 +179,11 @@ export default function App() {
     setCurrentPage('ai-chat');
   };
 
-  // Helper function to add new calendar event
   const handleAddCalendarEvent = (event: CalendarEvent) => {
     setCalendarEvents(prev => [...prev, event]);
     toast.success(`✅ Đã thêm sự kiện: ${event.title}`);
   };
 
-  // Helper function to update calendar event
   const handleUpdateCalendarEvent = (eventId: string, updates: Partial<CalendarEvent>) => {
     setCalendarEvents(prev => prev.map(event => 
       event.id === eventId ? { ...event, ...updates } : event
@@ -140,6 +193,40 @@ export default function App() {
   // Helper function to delete calendar event
   const handleDeleteCalendarEvent = (eventId: string) => {
     setCalendarEvents(prev => prev.filter(event => event.id !== eventId));
+  };
+
+  const handleAddHeartRateReading = (reading: Omit<HeartRateReading, 'id'>) => {
+    const newReading: HeartRateReading = {
+      ...reading,
+      id: `hr-${Date.now()}`
+    };
+    
+    setHeartRateReadings(prev => [...prev, newReading]);
+    
+    // Check if heart rate is outside normal range (60-100 bpm)
+    if (reading.rate < 60 || reading.rate > 100) {
+      const alert: HealthAlert = {
+        id: `alert-${Date.now()}`,
+        type: reading.rate < 60 ? 'heart_rate_low' : 'heart_rate_high',
+        title: reading.rate < 60 ? 'Nhịp tim chậm' : 'Nhịp tim nhanh',
+        description: `Nhịp tim ${reading.rate} bpm nằm ngoài vùng bình thường (60-100 bpm). Vui lòng theo dõi và tham khảo ý kiến bác sĩ nếu cần.`,
+        timestamp: reading.timestamp,
+        severity: reading.rate < 40 || reading.rate > 120 ? 'high' : 'medium'
+      };
+      
+      setHealthAlerts(prev => [...prev, alert]);
+      
+      toast.warning(`⚠️ Cảnh báo: ${alert.title} - ${reading.rate} bpm`);
+    } else {
+      toast.success(`📊 Đã ghi nhận nhịp tim: ${reading.rate} bpm`);
+    }
+  };
+
+  // Helper function to acknowledge health alert
+  const handleAcknowledgeHealthAlert = (alertId: string) => {
+    setHealthAlerts(prev => prev.map(alert =>
+      alert.id === alertId ? { ...alert, acknowledged: true } : alert
+    ));
   };
 
   if (!user) {
@@ -166,7 +253,7 @@ export default function App() {
       case 'profile':
         return (
           <UserProfile
-            userId={Number(user.id)}
+            user={user}
             onBackToMenu={handleBackToChat}
           />
         );
@@ -183,6 +270,10 @@ export default function App() {
       case 'health-data':
         return (
           <HealthData
+            heartRateReadings={heartRateReadings}
+            onAddHeartRateReading={handleAddHeartRateReading}
+            healthAlerts={healthAlerts}
+            onAcknowledgeAlert={handleAcknowledgeHealthAlert}
             onBackToMenu={handleBackToChat}
           />
         );
@@ -209,32 +300,14 @@ export default function App() {
   };
 
   return (
-    <NotificationManager events={calendarEvents} onUpdateEvent={handleUpdateCalendarEvent}>
+    <NotificationManager 
+      events={calendarEvents} 
+      onUpdateEvent={handleUpdateCalendarEvent}
+      healthAlerts={healthAlerts}
+      onAcknowledgeAlert={handleAcknowledgeHealthAlert}
+    >
       {renderCurrentPage()}
       <Toaster position="top-right" />
-      
-      {/* {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black/90 text-white p-3 rounded-lg text-xs font-mono z-40 max-w-[200px] sm:max-w-xs">
-          <div className="text-yellow-300 font-semibold mb-2">🔔 DEBUG</div>
-          <div className="space-y-1 mb-2 text-xs">
-            <div>👤 {user.name.split(' ')[0]}</div>
-            <div>📱 {currentPage}</div>
-          </div>
-          
-          <button
-            onClick={() => {
-              sendNotificationAndSpeak("Test Notification", "Đây là một thông báo thử nghiệm")
-              if ((window as any).triggerTestNotification) {
-                (window as any).triggerTestNotification()
-                toast.info('🧪 Test!')
-              }
-            }}
-            className="w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 px-2 rounded transition-colors"
-          >
-            🚨 TEST
-          </button>
-        </div>
-      )} */}
     </NotificationManager>
-  )
+  );
 }

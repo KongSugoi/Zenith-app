@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">zencare</string>
-    <string name="title_activity_main">zencare</string>
-    <string name="package_name">com.example.zencare</string>
-    <string name="custom_url_scheme">com.example.zencare</string>
-</resources>
